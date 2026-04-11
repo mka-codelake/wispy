@@ -32,14 +32,14 @@ cd C:\pfad\zu\wispy
 python -m venv .venv
 .\.venv\Scripts\activate
 
-# 3. Dependencies installieren
-pip install -r requirements.txt
+# 3. wispy als editable Package installieren (zieht alle Dependencies aus pyproject.toml)
+pip install -e .
 
-# 4. Erster Start (laedt beim ersten Lauf das Modell ~1.5 GB)
-python wispy.py
+# 4. Erster Start (laedt beim ersten Lauf das Modell ~1.6 GB)
+python -m wispy
 ```
 
-> Beim **ersten** Start laedt `model_fetch.py` das Modell `large-v3-turbo` (~1.6 GB) via `huggingface_hub.snapshot_download` direkt in `<repo-root>\models\large-v3-turbo\`. Kein HuggingFace-Cache im User-Profile -- das Modell liegt neben dem Quellcode und wandert bei einem Verschieben des Ordners mit. Der Zielpfad wird von `paths.py::resolve_model_path` bestimmt; via `model_path` in `config.yaml` laesst sich ein eigener Ordner setzen.
+> Beim **ersten** Start laedt `src/wispy/model_fetch.py` das Modell `large-v3-turbo` (~1.6 GB) via `huggingface_hub.snapshot_download` direkt in `<repo-root>\models\large-v3-turbo\`. Kein HuggingFace-Cache im User-Profile -- das Modell liegt neben dem Quellcode und wandert bei einem Verschieben des Ordners mit. Der Zielpfad wird von `src/wispy/paths.py::resolve_model_path` bestimmt; via `model_path` in `config.yaml` laesst sich ein eigener Ordner setzen.
 
 ---
 
@@ -102,7 +102,7 @@ restore_clipboard: true   # Alten Clipboard-Inhalt nach dem Einfuegen zurueckset
 Eine eigene Config laden:
 
 ```powershell
-python wispy.py --config C:\pfad\zu\meine-config.yaml
+python -m wispy --config C:\pfad\zu\meine-config.yaml
 ```
 
 ---
@@ -114,7 +114,7 @@ python wispy.py --config C:\pfad\zu\meine-config.yaml
 | `Could not load library cudnn_*.dll` / `cublas64_*.dll` | CUDA Toolkit fehlt, ist **Version 13.x** (inkompatibel mit CTranslate2) oder nicht im PATH | CUDA Toolkit **12.x** installieren (empfohlen: 12.9.1), danach Konsole neu starten |
 | Hotkey reagiert nicht auf F9 | Konsole nicht als Admin gestartet | wispy in Admin-PowerShell starten |
 | `Failed to query device 0` / kein Audio | Kein Mikrofon erkannt oder Berechtigung fehlt | Windows-Datenschutz-Einstellungen pruefen, anderes `audio_device` in Config probieren |
-| `(too short, skipped)` bei jedem Druck | Hotkey wird zu kurz gehalten (< 0.3 s) | Laenger halten oder `MIN_DURATION_SEC` in `wispy.py` reduzieren |
+| `(too short, skipped)` bei jedem Druck | Hotkey wird zu kurz gehalten (< 0.3 s) | Laenger halten oder `MIN_DURATION_SEC` in `src/wispy/main.py` reduzieren |
 | Erste Transkription dauert sehr lange | Modell wird heruntergeladen (~1.5 GB) | Einmaliger Vorgang, danach gecached |
 | Transkription falsch oder leer | Falsche Sprache, schlechtes Mikrofon-Signal, zu leise gesprochen | `language` in Config pruefen, naeher ans Mikrofon |
 

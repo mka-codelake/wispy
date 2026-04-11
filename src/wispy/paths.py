@@ -18,11 +18,11 @@ def get_app_dir() -> Path:
     """Return the directory that holds config.yaml, models/, logs/.
 
     - PyInstaller bundle: folder of wispy.exe (sys.executable).
-    - Running from source: folder of this file (= repo root).
+    - Running from source: repo root (three levels up from src/wispy/paths.py).
     """
     if getattr(sys, "frozen", False):
         return Path(sys.executable).resolve().parent
-    return Path(__file__).resolve().parent
+    return Path(__file__).resolve().parents[2]
 
 
 def resolve_model_path(model_name: str, model_path: Optional[str] = None) -> Path:

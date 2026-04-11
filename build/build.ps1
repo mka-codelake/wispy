@@ -59,8 +59,8 @@ if (-not (Test-Path $VenvPython)) {
 }
 
 # --- 5. Install dependencies into the venv ----------------------------------
-Write-Host "[build] Installing runtime dependencies ..." -ForegroundColor Yellow
-& uv pip install --python $VenvPython -r (Join-Path $RepoRoot "requirements.txt")
+Write-Host "[build] Installing wispy (editable) and runtime dependencies ..." -ForegroundColor Yellow
+& uv pip install --python $VenvPython -e $RepoRoot
 
 Write-Host "[build] Installing CUDA runtime libs and PyInstaller ..." -ForegroundColor Yellow
 & uv pip install --python $VenvPython `

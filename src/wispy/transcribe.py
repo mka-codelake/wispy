@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 from faster_whisper import WhisperModel
 
-from paths import REQUIRED_MODEL_FILES, check_model_complete, missing_model_files
+from .paths import REQUIRED_MODEL_FILES, check_model_complete, missing_model_files
 
 # Substrings (lowercase) that identify CUDA/DLL loading problems in the
 # exception message. When any of these appear, we print a helpful hint

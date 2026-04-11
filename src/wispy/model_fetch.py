@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-from paths import REQUIRED_MODEL_FILES, check_model_complete, missing_model_files
+from .paths import REQUIRED_MODEL_FILES, check_model_complete, missing_model_files
 
 
 def ensure_model_available(model_hub_id: str, target_dir: Path) -> None:

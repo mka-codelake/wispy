@@ -4,6 +4,9 @@
 Build (from the repo root, inside the build venv):
     pyinstaller build/wispy.spec --clean --noconfirm
 
+Entry point is src/wispy/__main__.py. The src/ directory is added to
+pathex so PyInstaller resolves the `wispy` package correctly.
+
 Output:
     dist/wispy/wispy.exe      entry point, asInvoker (wispy self-elevates)
     dist/wispy/_internal/     Python runtime, libs, and CUDA DLLs
@@ -56,11 +59,21 @@ fw_datas, fw_binaries, fw_hidden = collect_all("faster_whisper")
 nvidia_binaries = _find_nvidia_dlls()
 
 a = Analysis(
-    [str(ROOT / "wispy.py")],
-    pathex=[str(ROOT)],
+    [str(ROOT / "src" / "wispy" / "__main__.py")],
+    pathex=[str(ROOT / "src")],
     binaries=ct2_binaries + fw_binaries + nvidia_binaries,
     datas=ct2_datas + fw_datas,
     hiddenimports=[
+        "wispy",
+        "wispy.main",
+        "wispy.audio",
+        "wispy.config",
+        "wispy.feedback",
+        "wispy.hotkey",
+        "wispy.model_fetch",
+        "wispy.output",
+        "wispy.paths",
+        "wispy.transcribe",
         "ctranslate2",
         "sounddevice",
         "keyboard",

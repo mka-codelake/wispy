@@ -6,7 +6,7 @@ from typing import Optional
 
 import yaml
 
-from paths import get_app_dir
+from .paths import get_app_dir
 
 
 @dataclass

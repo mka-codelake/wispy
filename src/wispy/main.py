@@ -1,7 +1,7 @@
 """wispy -- Minimal local push-to-talk dictation tool.
 
 Usage:
-    python wispy.py [--config path/to/config.yaml]
+    python -m wispy [--config path/to/config.yaml]
 """
 
 import argparse
@@ -26,11 +26,20 @@ def _elevate_and_exit() -> None:
     The `keyboard` library needs admin rights for its global hook on most
     Windows systems. We relaunch ourselves with runas so the UAC prompt
     appears exactly once per start. When already elevated this is skipped.
+
+    Branches on sys.frozen: the bundled wispy.exe re-runs itself with its
+    own args, while the source run re-launches 'python -m wispy <args>'.
     """
-    params = " ".join(f'"{a}"' for a in sys.argv[1:])
+    user_args = " ".join(f'"{a}"' for a in sys.argv[1:])
+    if getattr(sys, "frozen", False):
+        exe = sys.executable
+        params = user_args
+    else:
+        exe = sys.executable  # python.exe
+        params = f"-m wispy {user_args}".strip()
     try:
         ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", sys.executable, params, None, 1
+            None, "runas", exe, params, None, 1
         )
     except Exception as e:
         print(f"[wispy] Auto-elevation failed: {e}")
@@ -45,13 +54,13 @@ if sys.platform == "win32" and not _is_admin():
 
 # Imports that touch native libraries happen only after elevation, so the
 # elevated process is the one that actually loads them.
-from audio import Recorder  # noqa: E402
-from config import Config, default_config_path, load_config  # noqa: E402
-from feedback import beep_start, beep_stop  # noqa: E402
-from hotkey import HotkeyListener  # noqa: E402
-from model_fetch import ensure_model_available  # noqa: E402
-from output import type_text  # noqa: E402
-from paths import get_app_dir, resolve_model_path  # noqa: E402
+from .audio import Recorder  # noqa: E402
+from .config import Config, default_config_path, load_config  # noqa: E402
+from .feedback import beep_start, beep_stop  # noqa: E402
+from .hotkey import HotkeyListener  # noqa: E402
+from .model_fetch import ensure_model_available  # noqa: E402
+from .output import type_text  # noqa: E402
+from .paths import get_app_dir, resolve_model_path  # noqa: E402
 
 MIN_DURATION_SEC = 0.3
 
@@ -85,7 +94,7 @@ def main():
 
     # Import Transcriber only AFTER HF_HUB_OFFLINE is set, so faster_whisper
     # sees it on its first import.
-    from transcribe import Transcriber  # noqa: E402
+    from .transcribe import Transcriber  # noqa: E402
 
     transcriber = Transcriber(
         model_path=model_path,
