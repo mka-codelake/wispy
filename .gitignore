@@ -16,9 +16,14 @@ venv/
 build/wispy/
 dist/
 
+# --- Whisper-Modell-Cache (First-run-Download, ~1.6 GB) ---
+models/
+
 # --- Privat / archiviert ---
 CLAUDE.md
 .archive/
+.claude/
+claudedocs/
 
 # --- Secrets / Env ---
 .env
