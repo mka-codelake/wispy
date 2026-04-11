@@ -1,0 +1,36 @@
+# wispy configuration -- edit and restart wispy to apply changes.
+
+# --- Model --------------------------------------------------------------
+# Name of the Whisper model. Used for the default model directory:
+#   <wispy-folder>/models/<model_name>/
+model_name: "large-v3-turbo"
+
+# Optional absolute or relative path to a local model directory.
+# null  = use the default <wispy-folder>/models/<model_name>
+# Set this only if you keep models somewhere else on disk.
+model_path: null
+
+# Hugging Face repo ID used for the one-time first-run download.
+model_hub_id: "dropbox-dash/faster-whisper-large-v3-turbo"
+
+# --- Compute ------------------------------------------------------------
+device: "cuda"            # v1: "cuda" only. CPU fallback is a future feature.
+compute_type: "float16"   # "float16" matches cuda; "int8" would be cpu.
+
+# --- Language -----------------------------------------------------------
+language: "de"            # ISO code, e.g. "de", "en", "fr"
+
+# --- Audio --------------------------------------------------------------
+sample_rate: 16000
+audio_device: null        # null = default microphone, or integer index
+
+# --- Hotkey -------------------------------------------------------------
+hotkey: "F9"              # e.g. "F9", "F12", "ctrl+space"
+record_mode: "hold"       # "hold" (push-to-talk) or "toggle"
+
+# --- Transcription ------------------------------------------------------
+beam_size: 5
+initial_prompt: ""
+
+# --- Output -------------------------------------------------------------
+restore_clipboard: true   # Restore previous clipboard after pasting

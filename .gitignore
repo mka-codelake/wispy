@@ -1,0 +1,39 @@
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# --- Virtualenvs ---
+.venv/
+venv/
+.venv-build/
+
+# --- PyInstaller-Artefakte ---
+# build/ enthaelt Quellen (build.ps1, wispy.spec, README.txt) UND
+# PyInstaller-Output in build/wispy/. Nur Letzteres ignorieren.
+build/wispy/
+dist/
+
+# --- Privat / archiviert ---
+CLAUDE.md
+.archive/
+
+# --- Secrets / Env ---
+.env
+.env.*
+!.env.example
+
+# --- IDE / Editor ---
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- OS-Junk ---
+Thumbs.db
+.DS_Store
+
+# --- Logs / temp ---
+*.log
