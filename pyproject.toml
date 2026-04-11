@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +7,11 @@ name = "wispy"
 version = "0.1.0"
 description = "Minimal local push-to-talk dictation tool for Windows"
 readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Michael Kagel" },
+]
 requires-python = ">=3.10"
 dependencies = [
     "faster-whisper>=1.1.0",

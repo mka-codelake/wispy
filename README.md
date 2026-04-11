@@ -120,6 +120,14 @@ python -m wispy --config C:\pfad\zu\meine-config.yaml
 
 ---
 
-## Lizenz / Status
+## Lizenz
+
+Copyright 2026 Michael Kagel
+
+wispy ist freie Software und steht unter der **GNU General Public License v3.0 oder (nach deiner Wahl) einer spaeteren Version**. Siehe [LICENSE](LICENSE) fuer den vollstaendigen Lizenztext.
+
+wispy wird in der Hoffnung verteilt, dass es nuetzlich ist, aber **ohne jegliche Gewaehrleistung**; auch ohne die implizite Gewaehrleistung der MARKTGAENGIGKEIT oder EIGNUNG FUER EINEN BESTIMMTEN ZWECK.
+
+## Status
 
 Persoenliches Tool, Work in Progress.
