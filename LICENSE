@@ -672,3 +672,19 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+------------------------------------------------------------------------
+
+Additional permission under GNU GPL version 3 section 7
+
+As a special exception, the copyright holder of wispy grants you
+permission to convey this program together with the NVIDIA CUDA runtime
+libraries (including but not limited to cublas, cudnn, nvrtc, and the
+CUDA runtime), which are distributed under NVIDIA's proprietary End User
+License Agreement. These NVIDIA components are not covered by the GNU
+GPL; recipients receive them under NVIDIA's license terms. This
+exception applies only to the unmodified NVIDIA libraries as distributed
+by NVIDIA Corporation or its authorized redistributors, and does not
+extend to any other proprietary component.
+
+Copyright (C) 2025 Michael Kagel
