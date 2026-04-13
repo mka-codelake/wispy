@@ -4,7 +4,6 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
-[![Release](https://github.com/mka-codelake/wispy/actions/workflows/release.yml/badge.svg)](https://github.com/mka-codelake/wispy/actions/workflows/release.yml)
 
 > [!NOTE]
 > **wispy** is in Beta. Configuration format and command-line options may change between minor versions.
