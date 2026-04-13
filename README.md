@@ -1,10 +1,36 @@
+<img src="./etc/logo.svg" width="400" align="right" alt="wispy"/>
+
 # wispy
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
+> [!NOTE]
+> **wispy** ist in Beta. Konfigurationsformat und Kommandozeilenoptionen koennen sich zwischen Minor-Versionen aendern.
 
 Minimalistisches Push-to-Talk Diktiertool fuer Windows. Hotkey druecken, sprechen, loslassen -- der Text erscheint dort, wo der Cursor ist (Notepad, Browser, VS Code, egal wo). Komplett lokal, keine Cloud, kein Abo.
 
 - **Backend:** [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (CTranslate2/CUDA), Modell `large-v3-turbo`
 - **Sprache:** Deutsch (per Config aenderbar)
 - **Footprint:** ~250 LOC, 6 direkte Dependencies, kein GUI
+
+## Ueberblick
+
+wispy loest ein konkretes Problem: Spracheingabe ohne Cloud-Abhaengigkeit, ohne Datenschutzbedenken und ohne Latenzen durch Netzwerkrundtrips. Wer viel diktiert und eine NVIDIA-GPU hat, bekommt mit wispy eine Offline-Loesung, die schneller und praeziser transkribiert als die meisten Online-Dienste -- und die keine einzige Silbe das lokale Netzwerk verlaesst.
+
+wispy ist als persoenliches Produktivitaetstool konzipiert. Es gibt keine GUI, keine Tray-App, keine Cloud-Anbindung. Es laeuft als Konsolen-Prozess im Hintergrund und wartet auf einen Hotkey.
+
+**Fuer wen?** Windows-Nutzer mit NVIDIA-GPU, die offline und ohne Abo-Kosten diktieren wollen -- in jeder Anwendung, die Tastatureingaben akzeptiert.
+
+## Features
+
+- **Push-to-Talk oder Toggle** -- Aufnahme per Hotkey starten und beenden, frei konfigurierbar (`hold` oder `toggle`-Modus)
+- **Voellig offline** -- Transkription laeuft vollstaendig lokal via `faster-whisper` (CTranslate2/CUDA), kein Netzwerkzugriff nach dem ersten Modell-Download
+- **Funktioniert ueberall** -- Textausgabe per Clipboard-Paste (Ctrl+V-Simulation), kompatibel mit jeder Windows-Anwendung inkl. Umlauten und Sonderzeichen
+- **Clipboard-Schutz** -- Vorheriger Clipboard-Inhalt wird nach dem Einfuegen automatisch wiederhergestellt
+- **Mehrsprachig** -- Sprache per ISO-Code in `config.yaml` einstellbar (`de`, `en`, `fr`, ...)
+- **Akustisches Feedback** -- Beep-Toene signalisieren Aufnahmestart (800 Hz) und -ende (400 Hz) ohne Bildschirmablenkung
+- **Portabler Build** -- PyInstaller-Bundle (`build/build.ps1`) erzeugt ein selbsttragendes `dist/wispy/`-Verzeichnis inkl. CUDA-DLLs; kein Python auf dem Zielrechner noetig
+- **Flexibler Modell-Pfad** -- Modell liegt per Default neben dem Quellcode in `models/`; ueber `model_path` in `config.yaml` frei konfigurierbar
 
 ---
 
@@ -107,6 +133,42 @@ python -m wispy --config C:\pfad\zu\meine-config.yaml
 
 ---
 
+## Projektstruktur
+
+```
+wispy/
+├── src/wispy/
+│   ├── __init__.py       # Package-Marker, __version__
+│   ├── __main__.py       # Einstiegspunkt fuer `python -m wispy`
+│   ├── main.py           # Haupt-Loop, Orchestrierung, UAC-Elevation
+│   ├── audio.py          # Mikrofon-Aufnahme (sounddevice/PortAudio)
+│   ├── transcribe.py     # Whisper-Modell laden und transkribieren
+│   ├── hotkey.py         # Globaler Hotkey-Listener (hold + toggle)
+│   ├── output.py         # Textausgabe via Clipboard-Paste
+│   ├── feedback.py       # Beep-Sounds (winsound)
+│   ├── config.py         # Config-Dataclass + YAML-Loader
+│   ├── paths.py          # Modell-Pfad-Aufloesung (src-aware + frozen)
+│   └── model_fetch.py    # Erster-Start-Download via HuggingFace Hub
+├── build/
+│   ├── build.ps1         # Portable-Build-Skript (uv + PyInstaller)
+│   ├── wispy.spec        # PyInstaller-Spec
+│   └── README.txt        # End-Nutzer-Doku fuer den Bundle
+├── etc/
+│   └── logo.svg          # Projekt-Logo
+├── config.yaml           # Standard-Konfiguration
+└── pyproject.toml        # Package-Metadaten und Dependencies
+```
+
+Interne Imports sind relative Imports (`from .audio import Recorder`). Ausnahme: `__main__.py` nutzt einen absoluten Import, damit PyInstaller das Entry-Script korrekt als Top-Level laden kann.
+
+---
+
+## Mitwirken
+
+Beitraege sind willkommen. Bitte lies zuerst [CONTRIBUTING.md](CONTRIBUTING.md) fuer Hinweise zu Branching, Commit-Konventionen und dem Pull-Request-Prozess.
+
+---
+
 ## Bekannte Stolperfallen
 
 | Symptom | Ursache | Loesung |
@@ -127,6 +189,8 @@ Copyright 2026 Michael Kagel
 wispy ist freie Software und steht unter der **GNU General Public License v3.0 oder (nach deiner Wahl) einer spaeteren Version**. Siehe [LICENSE](LICENSE) fuer den vollstaendigen Lizenztext.
 
 wispy wird in der Hoffnung verteilt, dass es nuetzlich ist, aber **ohne jegliche Gewaehrleistung**; auch ohne die implizite Gewaehrleistung der MARKTGAENGIGKEIT oder EIGNUNG FUER EINEN BESTIMMTEN ZWECK.
+
+Beitraege stehen ebenfalls unter der GPL v3 -- Details in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Status
 
