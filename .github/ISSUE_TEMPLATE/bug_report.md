@@ -27,7 +27,7 @@ What actually happened.
 ## Environment
 
 - **OS**: [e.g., Windows 10, Windows 11]
-- **wispy version**: [e.g., 0.1.0]
+- **wispy version**: [e.g., 0.2.0]
 - **Python version**: [e.g., 3.12.3]
 - **CUDA Toolkit version**: [e.g., 12.9.1]
 - **GPU**: [e.g., NVIDIA RTX 3080]
