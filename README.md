@@ -5,193 +5,193 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 > [!NOTE]
-> **wispy** ist in Beta. Konfigurationsformat und Kommandozeilenoptionen koennen sich zwischen Minor-Versionen aendern.
+> **wispy** is in Beta. Configuration format and command-line options may change between minor versions.
 
-Minimalistisches Push-to-Talk Diktiertool fuer Windows. Hotkey druecken, sprechen, loslassen -- der Text erscheint dort, wo der Cursor ist (Notepad, Browser, VS Code, egal wo). Komplett lokal, keine Cloud, kein Abo.
+Minimalist push-to-talk dictation tool for Windows. Press a hotkey, speak, release -- the text appears wherever your cursor is (Notepad, browser, VS Code, anywhere). Fully local, no cloud, no subscription.
 
-- **Backend:** [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (CTranslate2/CUDA), Modell `large-v3-turbo`
-- **Sprache:** Deutsch (per Config aenderbar)
-- **Footprint:** ~250 LOC, 6 direkte Dependencies, kein GUI
+- **Backend:** [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (CTranslate2/CUDA), model `large-v3-turbo`
+- **Language:** German (configurable via config)
+- **Footprint:** ~250 LOC, 6 direct dependencies, no GUI
 
-## Ueberblick
+## Overview
 
-wispy loest ein konkretes Problem: Spracheingabe ohne Cloud-Abhaengigkeit, ohne Datenschutzbedenken und ohne Latenzen durch Netzwerkrundtrips. Wer viel diktiert und eine NVIDIA-GPU hat, bekommt mit wispy eine Offline-Loesung, die schneller und praeziser transkribiert als die meisten Online-Dienste -- und die keine einzige Silbe das lokale Netzwerk verlaesst.
+wispy solves a specific problem: speech input without cloud dependency, without privacy concerns, and without latency from network round-trips. If you dictate a lot and have an NVIDIA GPU, wispy provides an offline solution that transcribes faster and more accurately than most online services -- and not a single syllable ever leaves your local machine.
 
-wispy ist als persoenliches Produktivitaetstool konzipiert. Es gibt keine GUI, keine Tray-App, keine Cloud-Anbindung. Es laeuft als Konsolen-Prozess im Hintergrund und wartet auf einen Hotkey.
+wispy is designed as a personal productivity tool. There is no GUI, no tray app, no cloud integration. It runs as a console process in the background and waits for a hotkey.
 
-**Fuer wen?** Windows-Nutzer mit NVIDIA-GPU, die offline und ohne Abo-Kosten diktieren wollen -- in jeder Anwendung, die Tastatureingaben akzeptiert.
+**Who is it for?** Windows users with an NVIDIA GPU who want to dictate offline and without subscription costs -- in any application that accepts keyboard input.
 
 ## Features
 
-- **Push-to-Talk oder Toggle** -- Aufnahme per Hotkey starten und beenden, frei konfigurierbar (`hold` oder `toggle`-Modus)
-- **Voellig offline** -- Transkription laeuft vollstaendig lokal via `faster-whisper` (CTranslate2/CUDA), kein Netzwerkzugriff nach dem ersten Modell-Download
-- **Funktioniert ueberall** -- Textausgabe per Clipboard-Paste (Ctrl+V-Simulation), kompatibel mit jeder Windows-Anwendung inkl. Umlauten und Sonderzeichen
-- **Clipboard-Schutz** -- Vorheriger Clipboard-Inhalt wird nach dem Einfuegen automatisch wiederhergestellt
-- **Mehrsprachig** -- Sprache per ISO-Code in `config.yaml` einstellbar (`de`, `en`, `fr`, ...)
-- **Akustisches Feedback** -- Beep-Toene signalisieren Aufnahmestart (800 Hz) und -ende (400 Hz) ohne Bildschirmablenkung
-- **Portabler Build** -- PyInstaller-Bundle (`build/build.ps1`) erzeugt ein selbsttragendes `dist/wispy/`-Verzeichnis inkl. CUDA-DLLs; kein Python auf dem Zielrechner noetig
-- **Flexibler Modell-Pfad** -- Modell liegt per Default neben dem Quellcode in `models/`; ueber `model_path` in `config.yaml` frei konfigurierbar
+- **Push-to-Talk or Toggle** -- Start and stop recording via hotkey, freely configurable (`hold` or `toggle` mode)
+- **Fully offline** -- Transcription runs entirely locally via `faster-whisper` (CTranslate2/CUDA), no network access after the initial model download
+- **Works everywhere** -- Text output via clipboard paste (Ctrl+V simulation), compatible with any Windows application including umlauts and special characters
+- **Clipboard protection** -- Previous clipboard content is automatically restored after pasting
+- **Multilingual** -- Language configurable via ISO code in `config.yaml` (`de`, `en`, `fr`, ...)
+- **Audio feedback** -- Beep tones signal recording start (800 Hz) and end (400 Hz) without screen distraction
+- **Portable build** -- PyInstaller bundle (`build/build.ps1`) produces a self-contained `dist/wispy/` directory including CUDA DLLs; no Python required on the target machine
+- **Flexible model path** -- Model is stored by default next to the source code in `models/`; freely configurable via `model_path` in `config.yaml`
 
 ---
 
-## Voraussetzungen
+## Requirements
 
 | | |
 |---|---|
-| **Betriebssystem** | Windows 10/11 **nativ** -- nicht WSL2 (wegen Mikrofon, Hotkey, Tastatur-Simulation) |
-| **Python** | 3.10, 3.11 oder 3.12 |
-| **GPU** | NVIDIA-GPU mit ~3 GB freiem VRAM (fuer `large-v3-turbo` + `float16`) |
-| **CUDA Toolkit** | **Version 12.x -- NICHT 13.x.** `faster-whisper` nutzt `CTranslate2`, und das unterstuetzt aktuell ausschliesslich CUDA 12 (mit cuDNN 9 -> CUDA >= 12.3). Empfohlen: **CUDA 12.9.1** (letzte 12er-Reihe, Juni 2025) oder 12.6/12.8. Manuell installieren -- enthaelt `cudart`, `cuBLAS` und `cuDNN`, die `faster-whisper` zur Laufzeit braucht. **Direkt-Download (Windows x86_64):** [cuda_12.9.1_576.57_windows.exe](https://developer.download.nvidia.com/compute/cuda/12.9.1/local_installers/cuda_12.9.1_576.57_windows.exe) (~3.56 GB) bzw. die Archiv-Seite [developer.nvidia.com/cuda-12-9-1-download-archive](https://developer.nvidia.com/cuda-12-9-1-download-archive). Eine Auswahl aller 12.x-Versionen findest du im [CUDA Toolkit Archive](https://developer.nvidia.com/cuda-toolkit-archive). |
-| **Admin-Rechte** | Beim Start empfohlen -- die `keyboard`-Library haengt sich global in den Tastatur-Hook ein und braucht das auf den meisten Windows-Systemen |
-| **Mikrofon** | Datenschutz-Einstellungen pruefen: *Einstellungen -> Datenschutz -> Mikrofon -> Desktop-Apps zulassen* |
-| **Speicherplatz** | ~4 GB (Modell ~1.5 GB + venv + Dependencies) |
+| **Operating System** | Windows 10/11 **native** -- not WSL2 (due to microphone, hotkey, and keyboard simulation requirements) |
+| **Python** | 3.10, 3.11, or 3.12 |
+| **GPU** | NVIDIA GPU with ~3 GB free VRAM (for `large-v3-turbo` + `float16`) |
+| **CUDA Toolkit** | **Version 12.x -- NOT 13.x.** `faster-whisper` uses `CTranslate2`, which currently only supports CUDA 12 (with cuDNN 9 -> CUDA >= 12.3). Recommended: **CUDA 12.9.1** (latest 12.x series, June 2025) or 12.6/12.8. Install manually -- it includes `cudart`, `cuBLAS`, and `cuDNN`, which `faster-whisper` needs at runtime. **Direct download (Windows x86_64):** [cuda_12.9.1_576.57_windows.exe](https://developer.download.nvidia.com/compute/cuda/12.9.1/local_installers/cuda_12.9.1_576.57_windows.exe) (~3.56 GB) or the archive page [developer.nvidia.com/cuda-12-9-1-download-archive](https://developer.nvidia.com/cuda-12-9-1-download-archive). A selection of all 12.x versions can be found in the [CUDA Toolkit Archive](https://developer.nvidia.com/cuda-toolkit-archive). |
+| **Admin rights** | Recommended at startup -- the `keyboard` library hooks into the global keyboard hook and requires this on most Windows systems |
+| **Microphone** | Check privacy settings: *Settings -> Privacy -> Microphone -> Allow desktop apps* |
+| **Disk space** | ~4 GB (model ~1.5 GB + venv + dependencies) |
 
 ---
 
 ## Setup
 
 ```powershell
-# 1. Repo holen
-cd C:\pfad\zu\wispy
+# 1. Clone the repo
+cd C:\path\to\wispy
 
-# 2. venv anlegen und aktivieren
+# 2. Create and activate a venv
 python -m venv .venv
 .\.venv\Scripts\activate
 
-# 3. wispy als editable Package installieren (zieht alle Dependencies aus pyproject.toml)
+# 3. Install wispy as an editable package (pulls all dependencies from pyproject.toml)
 pip install -e .
 
-# 4. Erster Start (laedt beim ersten Lauf das Modell ~1.6 GB)
+# 4. First run (downloads the model ~1.6 GB on first launch)
 python -m wispy
 ```
 
-> Beim **ersten** Start laedt `src/wispy/model_fetch.py` das Modell `large-v3-turbo` (~1.6 GB) via `huggingface_hub.snapshot_download` direkt in `<repo-root>\models\large-v3-turbo\`. Kein HuggingFace-Cache im User-Profile -- das Modell liegt neben dem Quellcode und wandert bei einem Verschieben des Ordners mit. Der Zielpfad wird von `src/wispy/paths.py::resolve_model_path` bestimmt; via `model_path` in `config.yaml` laesst sich ein eigener Ordner setzen.
+> On the **first** launch, `src/wispy/model_fetch.py` downloads the `large-v3-turbo` model (~1.6 GB) via `huggingface_hub.snapshot_download` directly into `<repo-root>\models\large-v3-turbo\`. No HuggingFace cache in your user profile -- the model sits next to the source code and moves with it if you relocate the folder. The target path is determined by `src/wispy/paths.py::resolve_model_path`; you can set a custom directory via `model_path` in `config.yaml`.
 
 ---
 
 ## Portable Build (optional)
 
-Wer kein Python-Setup auf dem Zielrechner will, kann wispy als portablen One-Folder-Bundle bauen. Das Skript `build/build.ps1` ruft PyInstaller mit `build/wispy.spec` auf und produziert `dist/wispy/` mit `wispy.exe` plus einem `_internal/`-Ordner.
+If you don't want a Python installation on the target machine, you can build wispy as a portable one-folder bundle. The script `build/build.ps1` invokes PyInstaller with `build/wispy.spec` and produces `dist/wispy/` with `wispy.exe` plus an `_internal/` directory.
 
 ```powershell
-# Im Repo-Root, in einer PowerShell:
+# In the repo root, in a PowerShell:
 .\build\build.ps1
 ```
 
-Der fertige `dist/wispy/`-Ordner ist selbst-tragend:
+The resulting `dist/wispy/` folder is self-contained:
 
-- **Kein CUDA Toolkit** auf dem Zielrechner noetig -- der Bundle bringt `cudart64_12.dll`, `cublas64_12.dll` und `cudnn_*.dll` in `_internal/` mit. Nur ein aktueller NVIDIA-Treiber wird gebraucht (fuer `nvcuda.dll` und das Kernel-Modul, die systemweit kommen muessen).
-- **Kein Installer.** Ordner kopieren, `wispy.exe` starten, fertig.
-- **Portable.** Ordner laesst sich auf USB-Stick / anderen Rechner verschieben; das bereits heruntergeladene Modell wandert in `models/` mit.
+- **No CUDA Toolkit** required on the target machine -- the bundle includes `cudart64_12.dll`, `cublas64_12.dll`, and `cudnn_*.dll` in `_internal/`. Only a current NVIDIA driver is needed (for `nvcuda.dll` and the kernel module, which must come from the system).
+- **No installer.** Copy the folder, run `wispy.exe`, done.
+- **Portable.** The folder can be moved to a USB drive or another machine; the already downloaded model travels along in `models/`.
 
-Die End-Nutzer-Doku fuer den Bundle liegt in `build/README.txt` und wird von PyInstaller nach `dist/wispy/README.txt` kopiert.
-
----
-
-## Steuerung
-
-**Standard-Modus: Hold (Push-to-Talk)**
-
-| Aktion | Tastendruck |
-|---|---|
-| Aufnahme starten | **F9 gedrueckt halten** -> Beep 800 Hz |
-| Aufnahme beenden + transkribieren | F9 loslassen -> Beep 400 Hz -> Text wird am Cursor eingefuegt |
-| Aufnahme verworfen | < 0.3 s losgelassen -> `(too short, skipped)` in Konsole |
-| wispy beenden | **Ctrl+C** im Konsolen-Fenster |
-
-**Toggle-Modus** (in `config.yaml` setzen: `record_mode: toggle`)
-
-| Aktion | Tastendruck |
-|---|---|
-| Aufnahme starten | F9 einmal druecken |
-| Aufnahme beenden + transkribieren | F9 erneut druecken |
-
-Text wird via Clipboard + simuliertes Ctrl+V eingefuegt -- funktioniert in jeder Anwendung, auch mit Umlauten und Sonderzeichen. Der vorherige Clipboard-Inhalt wird nach dem Einfuegen wiederhergestellt (deaktivierbar via `restore_clipboard: false`).
+End-user documentation for the bundle is located in `build/README.txt` and is copied by PyInstaller to `dist/wispy/README.txt`.
 
 ---
 
-## Konfiguration
+## Controls
 
-Alle Einstellungen liegen in `config.yaml`. Die wichtigsten:
+**Default mode: Hold (Push-to-Talk)**
+
+| Action | Key press |
+|---|---|
+| Start recording | **Hold F9** -> Beep 800 Hz |
+| Stop recording + transcribe | Release F9 -> Beep 400 Hz -> Text is inserted at cursor |
+| Recording discarded | Released in < 0.3 s -> `(too short, skipped)` in console |
+| Quit wispy | **Ctrl+C** in the console window |
+
+**Toggle mode** (set in `config.yaml`: `record_mode: toggle`)
+
+| Action | Key press |
+|---|---|
+| Start recording | Press F9 once |
+| Stop recording + transcribe | Press F9 again |
+
+Text is inserted via clipboard + simulated Ctrl+V -- works in any application, including umlauts and special characters. The previous clipboard content is restored after insertion (can be disabled via `restore_clipboard: false`).
+
+---
+
+## Configuration
+
+All settings are in `config.yaml`. The most important ones:
 
 ```yaml
-hotkey: "F9"              # Beliebige Taste -- "F9", "F12", "ctrl+space", ...
-record_mode: "hold"       # "hold" oder "toggle"
-language: "de"            # ISO-Code -- "de", "en", "fr", ...
-model_name: "large-v3-turbo"   # Auch: "small", "medium", "large-v3"
-device: "cuda"            # "cuda" oder "cpu"
+hotkey: "F9"              # Any key -- "F9", "F12", "ctrl+space", ...
+record_mode: "hold"       # "hold" or "toggle"
+language: "de"            # ISO code -- "de", "en", "fr", ...
+model_name: "large-v3-turbo"   # Also: "small", "medium", "large-v3"
+device: "cuda"            # "cuda" or "cpu"
 compute_type: "float16"   # "float16" (GPU) / "int8" (CPU)
-audio_device: null        # null = Standard-Mikrofon, sonst Index
-restore_clipboard: true   # Alten Clipboard-Inhalt nach dem Einfuegen zuruecksetzen
+audio_device: null        # null = default microphone, otherwise index
+restore_clipboard: true   # Restore old clipboard content after insertion
 ```
 
-Eine eigene Config laden:
+Load a custom config:
 
 ```powershell
-python -m wispy --config C:\pfad\zu\meine-config.yaml
+python -m wispy --config C:\path\to\my-config.yaml
 ```
 
 ---
 
-## Projektstruktur
+## Project Structure
 
 ```
 wispy/
 ├── src/wispy/
-│   ├── __init__.py       # Package-Marker, __version__
-│   ├── __main__.py       # Einstiegspunkt fuer `python -m wispy`
-│   ├── main.py           # Haupt-Loop, Orchestrierung, UAC-Elevation
-│   ├── audio.py          # Mikrofon-Aufnahme (sounddevice/PortAudio)
-│   ├── transcribe.py     # Whisper-Modell laden und transkribieren
-│   ├── hotkey.py         # Globaler Hotkey-Listener (hold + toggle)
-│   ├── output.py         # Textausgabe via Clipboard-Paste
-│   ├── feedback.py       # Beep-Sounds (winsound)
-│   ├── config.py         # Config-Dataclass + YAML-Loader
-│   ├── paths.py          # Modell-Pfad-Aufloesung (src-aware + frozen)
-│   └── model_fetch.py    # Erster-Start-Download via HuggingFace Hub
+│   ├── __init__.py       # Package marker, __version__
+│   ├── __main__.py       # Entry point for `python -m wispy`
+│   ├── main.py           # Main loop, orchestration, UAC elevation
+│   ├── audio.py          # Microphone recording (sounddevice/PortAudio)
+│   ├── transcribe.py     # Whisper model loading and transcription
+│   ├── hotkey.py         # Global hotkey listener (hold + toggle)
+│   ├── output.py         # Text output via clipboard paste
+│   ├── feedback.py       # Beep sounds (winsound)
+│   ├── config.py         # Config dataclass + YAML loader
+│   ├── paths.py          # Model path resolution (src-aware + frozen)
+│   └── model_fetch.py    # First-run download via HuggingFace Hub
 ├── build/
-│   ├── build.ps1         # Portable-Build-Skript (uv + PyInstaller)
-│   ├── wispy.spec        # PyInstaller-Spec
-│   └── README.txt        # End-Nutzer-Doku fuer den Bundle
+│   ├── build.ps1         # Portable build script (uv + PyInstaller)
+│   ├── wispy.spec        # PyInstaller spec
+│   └── README.txt        # End-user documentation for the bundle
 ├── etc/
-│   └── logo.svg          # Projekt-Logo
-├── config.yaml           # Standard-Konfiguration
-└── pyproject.toml        # Package-Metadaten und Dependencies
+│   └── logo.svg          # Project logo
+├── config.yaml           # Default configuration
+└── pyproject.toml        # Package metadata and dependencies
 ```
 
-Interne Imports sind relative Imports (`from .audio import Recorder`). Ausnahme: `__main__.py` nutzt einen absoluten Import, damit PyInstaller das Entry-Script korrekt als Top-Level laden kann.
+Internal imports use relative imports (`from .audio import Recorder`). Exception: `__main__.py` uses an absolute import so that PyInstaller can correctly load the entry script as top-level.
 
 ---
 
-## Mitwirken
+## Contributing
 
-Beitraege sind willkommen. Bitte lies zuerst [CONTRIBUTING.md](CONTRIBUTING.md) fuer Hinweise zu Branching, Commit-Konventionen und dem Pull-Request-Prozess.
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first for guidelines on branching, commit conventions, and the pull request process.
 
 ---
 
-## Bekannte Stolperfallen
+## Troubleshooting
 
-| Symptom | Ursache | Loesung |
+| Symptom | Cause | Solution |
 |---|---|---|
-| `Could not load library cudnn_*.dll` / `cublas64_*.dll` | CUDA Toolkit fehlt, ist **Version 13.x** (inkompatibel mit CTranslate2) oder nicht im PATH | CUDA Toolkit **12.x** installieren (empfohlen: 12.9.1), danach Konsole neu starten |
-| Hotkey reagiert nicht auf F9 | Konsole nicht als Admin gestartet | wispy in Admin-PowerShell starten |
-| `Failed to query device 0` / kein Audio | Kein Mikrofon erkannt oder Berechtigung fehlt | Windows-Datenschutz-Einstellungen pruefen, anderes `audio_device` in Config probieren |
-| `(too short, skipped)` bei jedem Druck | Hotkey wird zu kurz gehalten (< 0.3 s) | Laenger halten oder `MIN_DURATION_SEC` in `src/wispy/main.py` reduzieren |
-| Erste Transkription dauert sehr lange | Modell wird heruntergeladen (~1.5 GB) | Einmaliger Vorgang, danach gecached |
-| Transkription falsch oder leer | Falsche Sprache, schlechtes Mikrofon-Signal, zu leise gesprochen | `language` in Config pruefen, naeher ans Mikrofon |
+| `Could not load library cudnn_*.dll` / `cublas64_*.dll` | CUDA Toolkit missing, is **version 13.x** (incompatible with CTranslate2), or not in PATH | Install CUDA Toolkit **12.x** (recommended: 12.9.1), then restart the console |
+| Hotkey does not respond to F9 | Console not started as admin | Start wispy in an admin PowerShell |
+| `Failed to query device 0` / no audio | No microphone detected or permission missing | Check Windows privacy settings, try a different `audio_device` in config |
+| `(too short, skipped)` on every press | Hotkey held too briefly (< 0.3 s) | Hold longer or reduce `MIN_DURATION_SEC` in `src/wispy/main.py` |
+| First transcription takes very long | Model is being downloaded (~1.5 GB) | One-time process, cached afterwards |
+| Transcription wrong or empty | Wrong language, poor microphone signal, speaking too quietly | Check `language` in config, move closer to the microphone |
 
 ---
 
-## Lizenz
+## License
 
 Copyright 2026 Michael Kagel
 
-wispy ist freie Software und steht unter der **GNU General Public License v3.0 oder (nach deiner Wahl) einer spaeteren Version**. Siehe [LICENSE](LICENSE) fuer den vollstaendigen Lizenztext.
+wispy is free software and licensed under the **GNU General Public License v3.0 or (at your option) any later version**. See [LICENSE](LICENSE) for the full license text.
 
-wispy wird in der Hoffnung verteilt, dass es nuetzlich ist, aber **ohne jegliche Gewaehrleistung**; auch ohne die implizite Gewaehrleistung der MARKTGAENGIGKEIT oder EIGNUNG FUER EINEN BESTIMMTEN ZWECK.
+wispy is distributed in the hope that it will be useful, but **WITHOUT ANY WARRANTY**; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-Beitraege stehen ebenfalls unter der GPL v3 -- Details in [CONTRIBUTING.md](CONTRIBUTING.md).
+Contributions are also licensed under GPL v3 -- details in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Status
 
-Persoenliches Tool, Work in Progress.
+Personal tool, beta.
