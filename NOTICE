@@ -1,0 +1,39 @@
+wispy
+Copyright 2025 Michael Kagel
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your
+option) any later version.
+
+See the LICENSE file for the full license text.
+
+
+Third-Party Notices
+-------------------
+
+NVIDIA CUDA Libraries (cublas, cudnn, nvrtc, CUDA runtime)
+  License: NVIDIA End User License Agreement (proprietary)
+  Website: https://developer.nvidia.com/cuda-toolkit
+
+  The portable build of wispy bundles unmodified NVIDIA CUDA runtime
+  libraries for GPU-accelerated speech recognition. These libraries are
+  NOT covered by the GNU GPL. They are distributed under NVIDIA's
+  proprietary license terms and included under the additional permission
+  granted in the LICENSE file (GNU GPL v3 section 7 exception).
+
+  Recipients of the portable build receive the NVIDIA components under
+  NVIDIA's license, not under the GPL.
+
+
+faster-whisper
+  License: MIT
+  Website: https://github.com/SYSTRAN/faster-whisper
+
+CTranslate2
+  License: MIT
+  Website: https://github.com/OpenNMT/CTranslate2
+
+Whisper Large V3 Turbo (model weights)
+  License: MIT
+  Website: https://huggingface.co/openai/whisper-large-v3-turbo

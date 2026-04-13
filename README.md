@@ -3,6 +3,8 @@
 # wispy
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue)](https://www.python.org/downloads/)
+[![Release](https://github.com/mka-codelake/wispy/actions/workflows/release.yml/badge.svg)](https://github.com/mka-codelake/wispy/actions/workflows/release.yml)
 
 > [!NOTE]
 > **wispy** is in Beta. Configuration format and command-line options may change between minor versions.
@@ -191,7 +193,3 @@ wispy is free software and licensed under the **GNU General Public License v3.0 
 wispy is distributed in the hope that it will be useful, but **WITHOUT ANY WARRANTY**; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 Contributions are also licensed under GPL v3 -- details in [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Status
-
-Personal tool, beta.
