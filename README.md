@@ -134,6 +134,33 @@ python -m wispy --config C:\path\to\my-config.yaml
 
 ---
 
+## Vocabulary (Hotwords)
+
+Whisper sometimes mis-transcribes technical terms, file names, or proper names (e.g. `wispy` → `Whispy`, `.gitignore` → `Gitignore`). The vocabulary file lets you bias the model towards recognising specific terms correctly.
+
+**Location:** `hotwords.txt` next to `config.yaml` (same folder as `wispy.exe` or the repo root when running from source).
+
+**Format:** plain text, one term per line. Lines starting with `#` and blank lines are ignored.
+
+```text
+# wispy vocabulary
+wispy
+.gitignore
+pyproject.toml
+MyCompanyName
+```
+
+**How it works:** Terms are passed to `faster-whisper`'s `hotwords` parameter on every transcription call. This is a soft bias — it makes the model *prefer* these spellings but does not guarantee them. For hard replacements, a post-processing step is planned separately.
+
+**Hot-reload:** Not supported. Restart wispy after editing `hotwords.txt`.
+
+**Startup feedback:** wispy prints the number of loaded terms at startup:
+```
+[wispy] vocabulary  = 3 term(s) loaded
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -157,6 +184,7 @@ wispy/
 ├── etc/
 │   └── logo.svg          # Project logo
 ├── config.yaml           # Default configuration
+├── hotwords.txt          # Vocabulary list for transcription biasing (hotwords)
 └── pyproject.toml        # Package metadata and dependencies
 ```
 

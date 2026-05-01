@@ -20,7 +20,6 @@ dist/
 models/
 
 # --- Privat / archiviert ---
-CLAUDE.md
 .archive/
 .claude/
 claudedocs/

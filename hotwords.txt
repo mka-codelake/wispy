@@ -1,0 +1,15 @@
+# wispy vocabulary -- one term per line.
+# Lines starting with # are comments and are ignored.
+# Blank lines are also ignored.
+#
+# These terms are passed to faster-whisper's `hotwords` parameter at runtime,
+# which biases the model towards recognising them correctly. This is a soft
+# hint, not a hard replacement guarantee.
+#
+# Add domain-specific terms, proper names, file names, CLI commands, etc.
+# Restart wispy after editing this file for changes to take effect.
+#
+# Examples (uncomment or add your own):
+wispy
+.gitignore
+pyproject.toml

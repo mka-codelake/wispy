@@ -60,7 +60,7 @@ from .feedback import beep_start, beep_stop  # noqa: E402
 from .hotkey import HotkeyListener  # noqa: E402
 from .model_fetch import ensure_model_available  # noqa: E402
 from .output import type_text  # noqa: E402
-from .paths import get_app_dir, resolve_model_path  # noqa: E402
+from .paths import get_app_dir, load_vocabulary, resolve_model_path  # noqa: E402
 
 MIN_DURATION_SEC = 0.3
 
@@ -75,10 +75,14 @@ def main():
     cfg: Config = load_config(config_path)
     model_path = resolve_model_path(cfg.model_name, cfg.model_path)
 
+    vocabulary = load_vocabulary()
+    hotwords_str = " ".join(vocabulary)
+
     print(f"[wispy] app_dir     = {app_dir}")
     print(f"[wispy] config      = {config_path} "
           f"({'found' if config_path.exists() else 'defaults'})")
     print(f"[wispy] model_path  = {model_path}")
+    print(f"[wispy] vocabulary  = {len(vocabulary)} term(s) loaded")
     print(f"[wispy] hotkey={cfg.hotkey}, mode={cfg.record_mode}, "
           f"model={cfg.model_name}, device={cfg.device}, lang={cfg.language}")
 
@@ -103,6 +107,7 @@ def main():
         language=cfg.language,
         beam_size=cfg.beam_size,
         initial_prompt=cfg.initial_prompt,
+        hotwords=hotwords_str,
     )
 
     recorder = Recorder(sample_rate=cfg.sample_rate, device=cfg.audio_device)

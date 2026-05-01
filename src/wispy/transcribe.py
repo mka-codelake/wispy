@@ -36,10 +36,12 @@ class Transcriber:
         language: str = "de",
         beam_size: int = 5,
         initial_prompt: str = "",
+        hotwords: str = "",
     ):
         self.language = language
         self.beam_size = beam_size
         self.initial_prompt = initial_prompt or None
+        self.hotwords = hotwords or None
 
         if not check_model_complete(model_path):
             missing = missing_model_files(model_path)
@@ -104,6 +106,7 @@ class Transcriber:
             language=self.language,
             beam_size=self.beam_size,
             initial_prompt=self.initial_prompt,
+            hotwords=self.hotwords,
             vad_filter=True,
         )
         text = " ".join(seg.text.strip() for seg in segments)
