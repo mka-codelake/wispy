@@ -24,6 +24,15 @@ What you expected to happen.
 
 What actually happened.
 
+## Acceptance Criteria
+
+Concrete conditions that must hold for the fix to be considered complete.
+Typically: reproduction case no longer triggers the bug, plus regression test
+where reasonable.
+
+- [ ] ...
+- [ ] ...
+
 ## Environment
 
 - **OS**: [e.g., Windows 10, Windows 11]

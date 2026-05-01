@@ -1,0 +1,73 @@
+name: Claude Review
+
+# Reviews PRs on open and synchronize. Tracks iterations via a single
+# 'review:iteration-N' label. At N=3 the loop is broken and 'needs-human' is set.
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: |
+      !contains(github.event.pull_request.labels.*.name, 'do-not-automate') &&
+      !contains(github.event.pull_request.labels.*.name, 'needs-human')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Iteration cap guard
+        id: guard
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+
+          if gh pr view "$PR" --json labels --jq '.labels[].name' | grep -qx 'review:iteration-3'; then
+            echo "Iteration cap reached — escalating to human."
+            gh pr edit "$PR" --remove-label 'review:iteration-3' --add-label 'needs-human' || true
+            gh pr comment "$PR" --body 'Review iteration cap (3) reached. Escalating to human reviewer.'
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run Claude reviewer
+        if: steps.guard.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: |
+            --model sonnet
+            --max-turns 8
+          prompt: |
+            You are reviewing pull request #${{ github.event.pull_request.number }} for this repository.
+
+            Read the PR description (analysis, plan, result sections), the diff, and the linked issue. Verify:
+
+            1. The implementation matches the plan in the PR body.
+            2. The change actually solves the issue's acceptance criteria.
+            3. No regressions, dead code, leftover debug output, or scope creep.
+            4. Tests exist where reasonable; Windows-only behavior is flagged as untested.
+            5. Style matches the repo (no speculative abstractions, minimal comments, no new deps without justification).
+
+            Then act:
+
+            - If the PR is good: post a sticky review comment starting with `## Review — APPROVED` summarizing the verification. Add label `review:approved`. Do not add any iteration label. Do not request changes.
+
+            - If you find issues: post a sticky review comment starting with `## Review — Changes requested` listing concrete findings (file:line where possible). End the comment with the literal line `@claude fix the items above`. Then update the iteration label: remove the current `review:iteration-N` label if present, and add the next one (`review:iteration-1` if none was set, otherwise increment by 1; cap at 3). Use `gh pr edit` for label changes.
+
+            Use the GitHub CLI (`gh`) for all label and comment operations. Do not approve the PR via the GitHub review UI — use comments only. The human reviewer is the final gate.
