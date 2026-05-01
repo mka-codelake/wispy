@@ -54,29 +54,58 @@ jobs:
           show_full_output: true
           allowed_bots: "claude[bot]"
           claude_args: |
-            --model sonnet
+            --model opus
             --max-turns 15
             --allowed-tools "Read,Glob,Grep,LS,Bash"
           prompt: |
             You are reviewing pull request #${{ github.event.pull_request.number }} for this repository.
 
+            ## Step 1 — Carry-forward of prior review rounds
+
+            Before drafting your verdict, fetch all prior review comments by yourself on this PR:
+
+            ```
+            gh pr view ${{ github.event.pull_request.number }} --json comments --jq '.comments[] | select(.author.login=="claude")'
+            ```
+
+            For each prior `## Review — Changes requested` block from yourself, check whether the listed findings still apply to the current code state:
+            - If the finding was addressed by a commit since: do NOT carry it forward, but mention briefly in your new verdict ("Previously raised: X — resolved in commit Y").
+            - If the finding still applies: include it in your new verdict. Do NOT silently drop prior findings — that is the failure mode this step exists to prevent.
+
+            ## Step 2 — Verify
+
             Read the PR description (analysis, plan, result sections), the diff, and the linked issue. Verify:
 
             1. The implementation matches the plan in the PR body.
             2. The change actually solves the issue's acceptance criteria.
-            3. No regressions, dead code, leftover debug output, or scope creep.
+            3. No regressions, dead code, leftover debug output.
             4. Tests exist where reasonable; Windows-only behavior is flagged as untested.
             5. Style matches the repo (no speculative abstractions, minimal comments, no new deps without justification).
             6. **Scope discipline — flag any of these as concrete findings, not generic "looks good":**
                - Any change to `.gitignore` that the issue did not explicitly request.
-               - Any creation or modification of `CLAUDE.md` (it is intentionally local-only and gitignored — must NEVER be committed).
                - Any change to root-level config or convention files (`pyproject.toml`, `setup.cfg`, `.editorconfig`, etc.) not justified by the issue.
                - Any file in the diff that is not directly necessary for the issue's acceptance criteria.
 
-            Then act:
+            ## Step 3 — Classify each finding
 
-            - If the PR is good: post a sticky review comment starting with `## Review — APPROVED` summarizing the verification. Add label `review:approved`. Do not add any iteration label. Do not request changes. Then mark the PR as ready for review (no longer draft) using `gh pr ready ${{ github.event.pull_request.number }}` — this signals to the human reviewer that the bot considers its work complete and the PR is ready for human approval and merge.
+            Each finding belongs to exactly one of two categories:
 
-            - If you find issues: post a sticky review comment starting with `## Review — Changes requested` listing concrete findings (file:line where possible). End the comment with the literal line `@claude fix the items above`. Then update the iteration label: remove the current `review:iteration-N` label if present, and add the next one (`review:iteration-1` if none was set, otherwise increment by 1; cap at 3). Use `gh pr edit` for label changes.
+            - **Bot-fixable**: items the bot can address by changing tracked files within its allowed scope.
+            - **Human-only**: items that require modifying files the bot is hard-constrained from touching (`.github/workflows/claude-*.yml`, `release.yml`), OR items requiring judgement only a human can make (e.g. semver bump decisions, release notes wording, deciding whether a feature should ship at all). Note: `CLAUDE.md` is now committed and IS bot-fixable.
+
+            ## Step 4 — Act
+
+            **If no findings (or only "previously resolved" notes):**
+            Post a sticky review comment starting with `## Review — APPROVED` summarizing the verification. Add label `review:approved`. Do not add any iteration label. Do not request changes. Then mark the PR as ready for review (no longer draft) using `gh pr ready ${{ github.event.pull_request.number }}` — this signals that the bot considers its work complete and human approval and merge can happen.
+
+            **If only human-only findings (no bot-fixable):**
+            Post `## Review — APPROVED with notes for human reviewer` followed by a `### For human reviewer (bot cannot fix)` section listing each item. Add label `review:approved`. Do NOT post `@claude fix`. Do NOT add iteration label. Mark the PR as ready (`gh pr ready`).
+
+            **If bot-fixable findings (with or without human-only ones):**
+            Post `## Review — Changes requested` with two clearly separated sections when applicable:
+            - `### Bot-fixable findings` (concrete, file:line where possible)
+            - `### For human reviewer (bot cannot fix)` (only if any exist)
+
+            End the comment with the literal line `@claude fix the items above` — but ONLY referring to the bot-fixable section. Update the iteration label: remove the current `review:iteration-N` label if present, and add the next one (`review:iteration-1` if none was set, otherwise increment by 1; cap at 3). PR stays Draft.
 
             Use the GitHub CLI (`gh`) for all label and comment operations. Do not approve the PR via the GitHub review UI — use comments only. The human reviewer is the final gate.

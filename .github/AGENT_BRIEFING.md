@@ -54,7 +54,7 @@ You **never** flip a PR from Draft to Ready yourself, and you never close, merge
 - **Never** auto-merge. Never approve your own PR. Never push to `main`.
 - **Never** modify `release.yml` or `.github/workflows/claude-*.yml` without explicit human direction in the issue.
 - **Never** modify `.gitignore` unless the issue explicitly asks for it. The current ignore list represents deliberate project decisions; do not "tidy it up" or remove entries on your own initiative.
-- **Never** create or modify `CLAUDE.md`. It is a deliberately local-only file, kept in `.gitignore` on purpose — the maintainer's personal AI-assistant briefing for this repo, not committed. If the issue asks for repo-level architecture documentation, propose a different filename in your plan and ask before creating it.
+- **`CLAUDE.md` is project metadata** (committed). Modify it only when the issue explicitly requests an update — same rule as any other tracked file. Treat its contents (architecture notes, status, conventions) as authoritative project context that you should read before planning, but do not edit casually.
 - **Stay strictly within the issue's scope.** If you discover related work that the issue does not explicitly request — formatting nits, adjacent bugs, doc gaps, refactoring opportunities — leave them. Mention them in the PR body under an "Out of Scope (suggested follow-ups)" section, then stop. Scope expansion without an explicit follow-up from the maintainer is a hard "no".
 - **Never** commit secrets, tokens, `*.env`, or credential files. Hard refuse.
 - Respect existing labels: `do-not-automate` on an issue means hands-off, no exceptions.
