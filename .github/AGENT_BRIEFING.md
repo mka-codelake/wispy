@@ -43,6 +43,9 @@ If you are blocked or uncertain, do **not** guess. Stop and escalate:
 
 - **Never** auto-merge. Never approve your own PR. Never push to `main`.
 - **Never** modify `release.yml` or `.github/workflows/claude-*.yml` without explicit human direction in the issue.
+- **Never** modify `.gitignore` unless the issue explicitly asks for it. The current ignore list represents deliberate project decisions; do not "tidy it up" or remove entries on your own initiative.
+- **Never** create or modify `CLAUDE.md`. It is a deliberately local-only file, kept in `.gitignore` on purpose — the maintainer's personal AI-assistant briefing for this repo, not committed. If the issue asks for repo-level architecture documentation, propose a different filename in your plan and ask before creating it.
+- **Stay strictly within the issue's scope.** If you discover related work that the issue does not explicitly request — formatting nits, adjacent bugs, doc gaps, refactoring opportunities — leave them. Mention them in the PR body under an "Out of Scope (suggested follow-ups)" section, then stop. Scope expansion without an explicit follow-up from the maintainer is a hard "no".
 - **Never** commit secrets, tokens, `*.env`, or credential files. Hard refuse.
 - Respect existing labels: `do-not-automate` on an issue means hands-off, no exceptions.
 - The runtime target is **Windows native** (not WSL2, not Linux). The CI runner is Linux — anything you cannot validate there must be flagged as untested.

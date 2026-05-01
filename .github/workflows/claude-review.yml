@@ -52,6 +52,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
+          allowed_bots: "claude[bot]"
           claude_args: |
             --model sonnet
             --max-turns 15
@@ -66,6 +67,11 @@ jobs:
             3. No regressions, dead code, leftover debug output, or scope creep.
             4. Tests exist where reasonable; Windows-only behavior is flagged as untested.
             5. Style matches the repo (no speculative abstractions, minimal comments, no new deps without justification).
+            6. **Scope discipline — flag any of these as concrete findings, not generic "looks good":**
+               - Any change to `.gitignore` that the issue did not explicitly request.
+               - Any creation or modification of `CLAUDE.md` (it is intentionally local-only and gitignored — must NEVER be committed).
+               - Any change to root-level config or convention files (`pyproject.toml`, `setup.cfg`, `.editorconfig`, etc.) not justified by the issue.
+               - Any file in the diff that is not directly necessary for the issue's acceptance criteria.
 
             Then act:
 

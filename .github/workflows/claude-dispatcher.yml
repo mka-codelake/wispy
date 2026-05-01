@@ -38,11 +38,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Load agent briefing into env
+      - name: Load agent briefing from main
+        # Always load briefing from main, not from the PR branch.
+        # Otherwise the bot would see the briefing state of its own branch
+        # (frozen at branch-creation time), and any briefing tightening
+        # would only take effect after manual rebase.
         run: |
+          git fetch --depth=1 origin main:refs/remotes/origin/main
           {
             echo 'AGENT_BRIEFING<<EOF_AGENT_BRIEFING'
-            cat .github/AGENT_BRIEFING.md
+            git show origin/main:.github/AGENT_BRIEFING.md
             echo 'EOF_AGENT_BRIEFING'
           } >> "$GITHUB_ENV"
 
