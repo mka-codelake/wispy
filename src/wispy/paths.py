@@ -51,3 +51,26 @@ def missing_model_files(model_dir: Path) -> list:
     if not model_dir.is_dir():
         return list(REQUIRED_MODEL_FILES)
     return [name for name in REQUIRED_MODEL_FILES if not (model_dir / name).is_file()]
+
+
+def get_vocabulary_path() -> Path:
+    """Return the path to hotwords.txt next to config.yaml (app_dir)."""
+    return get_app_dir() / "hotwords.txt"
+
+
+def load_vocabulary() -> list[str]:
+    """Load vocabulary terms from hotwords.txt.
+
+    Returns a list of non-empty, non-comment lines. Returns [] if the file
+    does not exist.
+    """
+    path = get_vocabulary_path()
+    if not path.is_file():
+        return []
+    terms = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            term = line.strip()
+            if term and not term.startswith("#"):
+                terms.append(term)
+    return terms
