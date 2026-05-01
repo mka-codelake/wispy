@@ -39,6 +39,16 @@ If you are blocked or uncertain, do **not** guess. Stop and escalate:
 - **External dependency or destructive action needed** (git history rewrite, dependency removal, schema migration): apply label `needs-human`, stop and ask.
 - **CI fails after one fix attempt**: do not chain endless fix attempts. Post the failure analysis as a comment, apply `needs-human`, stop.
 
+## PR Lifecycle
+
+The dispatcher and reviewer workflows manage the PR's draft/ready state — you do not need to. For your awareness:
+
+- **Initial**: dispatcher's auto-create step opens the PR as **Draft** the first time you push commits for an issue.
+- **During fix iterations** (after `@claude fix` triggers another dispatcher run): PR stays Draft.
+- **After reviewer's APPROVED verdict**: reviewer flips PR to **Ready for review** via `gh pr ready`. This is the signal that human approval and merge can happen.
+
+You **never** flip a PR from Draft to Ready yourself, and you never close, merge, or modify the draft state of any PR.
+
 ## Hard Constraints
 
 - **Never** auto-merge. Never approve your own PR. Never push to `main`.

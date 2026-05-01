@@ -75,7 +75,7 @@ jobs:
 
             Then act:
 
-            - If the PR is good: post a sticky review comment starting with `## Review — APPROVED` summarizing the verification. Add label `review:approved`. Do not add any iteration label. Do not request changes.
+            - If the PR is good: post a sticky review comment starting with `## Review — APPROVED` summarizing the verification. Add label `review:approved`. Do not add any iteration label. Do not request changes. Then mark the PR as ready for review (no longer draft) using `gh pr ready ${{ github.event.pull_request.number }}` — this signals to the human reviewer that the bot considers its work complete and the PR is ready for human approval and merge.
 
             - If you find issues: post a sticky review comment starting with `## Review — Changes requested` listing concrete findings (file:line where possible). End the comment with the literal line `@claude fix the items above`. Then update the iteration label: remove the current `review:iteration-N` label if present, and add the next one (`review:iteration-1` if none was set, otherwise increment by 1; cap at 3). Use `gh pr edit` for label changes.
 

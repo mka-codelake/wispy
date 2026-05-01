@@ -56,8 +56,35 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           show_full_output: true
+          allowed_bots: "claude[bot]"
           claude_args: |
             --model opusplan
             --max-turns 100
             --append-system-prompt
             ${{ env.AGENT_BRIEFING }}
+
+      - name: Auto-create draft PR if branch was created
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          git fetch origin --prune
+          BRANCH=$(git branch -r --list "origin/claude/issue-${ISSUE}-*" --sort=-committerdate | head -1 | sed 's|^[[:space:]]*origin/||')
+          if [ -z "$BRANCH" ]; then
+            echo "No claude/issue-${ISSUE}-* branch found — nothing to do."
+            exit 0
+          fi
+          if gh pr list --head "$BRANCH" --state all --json number --jq '.[0].number' | grep -q .; then
+            echo "PR already exists for $BRANCH — skipping."
+            exit 0
+          fi
+          TITLE=$(git log -1 --pretty=%s "origin/$BRANCH")
+          gh pr create --draft --base main --head "$BRANCH" \
+            --title "$TITLE" \
+            --body "Closes #${ISSUE}
+
+          Auto-created by claude-dispatcher. Plan, file list, and test notes are in the latest comment on issue #${ISSUE} and in commit messages on this branch.
+
+          PR is opened as **Draft**. The reviewer workflow will mark it **Ready for review** once it issues an APPROVED verdict."
