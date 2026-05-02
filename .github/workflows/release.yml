@@ -56,5 +56,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          # tags containing a hyphen (e.g. v1.0.0-rc1) are treated as pre-release; stable tags have none
           prerelease: ${{ contains(github.ref_name, '-') }}
           files: dist/wispy-${{ github.ref_name }}.zip
