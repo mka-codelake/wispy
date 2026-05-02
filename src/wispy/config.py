@@ -25,6 +25,7 @@ class Config:
     initial_prompt: str = ""
     restore_clipboard: bool = True
     update_check: bool = True
+    auto_update: bool = False
 
 
 def default_config_path() -> Path:

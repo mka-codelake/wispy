@@ -44,5 +44,9 @@ initial_prompt: ""
 restore_clipboard: true   # Restore previous clipboard after pasting
 
 # --- Updates ------------------------------------------------------------
-# Set to false to disable the background version check and --update entirely.
+# Three tiers of update behaviour:
+#   update_check: false                       no check, no prompt, you handle updates manually
+#   update_check: true,  auto_update: false   check + ask "[y/N]" before applying  (default)
+#   update_check: true,  auto_update: true    check + apply silently + restart
 update_check: true
+auto_update: false

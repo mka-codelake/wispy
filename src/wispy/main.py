@@ -70,10 +70,12 @@ from .model_fetch import ensure_model_available  # noqa: E402
 from .output import type_text  # noqa: E402
 from .paths import get_app_dir, load_vocabulary, resolve_model_path  # noqa: E402
 from .updater import (  # noqa: E402
+    check_for_updates,
     download_staged_update,
-    find_staged_zip,
     handle_post_update_start,
-    start_update_check_thread,
+    prompt_for_update,
+    report_update_status,
+    stage_updates,
     trigger_swap,
 )
 
@@ -148,22 +150,32 @@ def main():
     app_dir = get_app_dir()
     cfg: Config = load_config(config_path)
 
-    # --- Phase 1: post-swap cleanup (backup dir present = swap just succeeded) ---
+    # --- Update flow: post-swap cleanup, then dual-stream check + apply -----
     handle_post_update_start(app_dir, __version__)
 
-    # --- Phase 2: apply staged update on normal start (swap + exit) ----------
-    if not args.update and cfg.update_check:
-        staged = find_staged_zip(app_dir)
-        if staged:
-            trigger_swap(staged, app_dir)
-            # trigger_swap exits for frozen builds; returns here only in source runs
-
-    # --- Phase 3: explicit --update flag → download then continue -----------
-    if args.update:
-        if cfg.update_check:
-            download_staged_update(__version__, app_dir)
-        else:
-            print("[update] Update check is disabled (update_check: false in config).")
+    if cfg.update_check:
+        status = check_for_updates(__version__, app_dir)
+        report_update_status(__version__, status)
+        if status.has_update():
+            # Three tiers collapse here:
+            #   auto_update=true  -> always proceed
+            #   --update flag     -> force proceed for this run (power-user / scripts)
+            #   else              -> ask the user
+            proceed = cfg.auto_update or args.update or prompt_for_update(status)
+            if proceed:
+                staged = stage_updates(status, app_dir)
+                if staged:
+                    trigger_swap(
+                        app_zip=staged.get("app"),
+                        cuda_zip=staged.get("cuda"),
+                        app_dir=app_dir,
+                    )
+                    # trigger_swap exits in frozen build. Source runs return
+                    # here and just continue with the older binaries.
+            else:
+                print("[update] Skipped. wispy will continue on the current version.")
+    elif args.update:
+        print("[update] --update was set, but update_check is disabled in config.")
 
     model_path = resolve_model_path(cfg.model_name, cfg.model_path)
 
@@ -185,10 +197,6 @@ def main():
     # Make CTranslate2 see <app_dir>/cuda/ when looking for the NVIDIA DLLs.
     # No-op on CPU systems and on Linux/macOS dev runs.
     add_cuda_to_dll_search_path(app_dir)
-
-    # --- Background update check (skipped when --update was used this run) ---
-    if cfg.update_check and not args.update:
-        start_update_check_thread(__version__)
 
     # --- Ensure model is present (first-run download if needed) ----------
     try:
