@@ -30,6 +30,8 @@ from typing import Optional
 
 from packaging.version import Version
 
+from .download import download_with_progress
+
 _GITHUB_REPO = "mka-codelake/wispy"
 _RELEASES_URL = f"https://api.github.com/repos/{_GITHUB_REPO}/releases?per_page=50"
 _TAG_PREFIX = "cuda-v"
@@ -137,15 +139,17 @@ def _download_to_tempfile(url: str, target_dir: Path) -> Optional[Path]:
     )
     tmp_path = Path(tmp.name)
     tmp.close()
-    try:
-        req = urllib.request.Request(url, headers=_request_headers())
-        with urllib.request.urlopen(req, timeout=300) as resp, open(tmp_path, "wb") as out:
-            shutil.copyfileobj(resp, out)
-        return tmp_path
-    except Exception as e:
-        print(f"[cuda] Download failed: {e}")
+
+    ok = download_with_progress(
+        url=url,
+        target=tmp_path,
+        headers=_request_headers(),
+        label="[cuda]",
+    )
+    if not ok:
         tmp_path.unlink(missing_ok=True)
         return None
+    return tmp_path
 
 
 def _validate_zip(zip_path: Path) -> bool:

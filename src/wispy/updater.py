@@ -46,6 +46,8 @@ from typing import Optional
 
 from packaging.version import Version
 
+from .download import download_with_progress
+
 _GITHUB_REPO = "mka-codelake/wispy"
 _RELEASES_URL = f"https://api.github.com/repos/{_GITHUB_REPO}/releases?per_page=50"
 
@@ -289,16 +291,12 @@ def _download_asset(asset: dict, target: Path) -> bool:
     url = asset.get("browser_download_url")
     if not url:
         return False
-    target.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        req = urllib.request.Request(url, headers=_request_headers())
-        with urllib.request.urlopen(req, timeout=600) as resp, open(target, "wb") as out:
-            shutil.copyfileobj(resp, out)
-        return True
-    except Exception as e:
-        print(f"[update] Download failed for {asset.get('name')}: {e}")
-        target.unlink(missing_ok=True)
-        return False
+    return download_with_progress(
+        url=url,
+        target=target,
+        headers=_request_headers(),
+        label="[update]",
+    )
 
 
 def stage_updates(status: UpdateStatus, app_dir: Path) -> dict:
