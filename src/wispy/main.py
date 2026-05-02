@@ -57,7 +57,14 @@ if sys.platform == "win32" and not _is_admin():
 from . import __version__  # noqa: E402
 from .audio import Recorder  # noqa: E402
 from .config import Config, default_config_path, load_config  # noqa: E402
+from .cuda_loader import (  # noqa: E402
+    add_cuda_to_dll_search_path,
+    fetch_latest_cuda_release,
+    install_cuda_bundle,
+    is_cuda_installed,
+)
 from .feedback import beep_start, beep_stop  # noqa: E402
+from .gpu_detect import has_nvidia_gpu  # noqa: E402
 from .hotkey import HotkeyListener  # noqa: E402
 from .model_fetch import ensure_model_available  # noqa: E402
 from .output import type_text  # noqa: E402
@@ -71,6 +78,60 @@ from .updater import (  # noqa: E402
 )
 
 MIN_DURATION_SEC = 0.3
+
+
+def _restart_wispy() -> None:
+    """Re-launch wispy with the same argv, then exit the current process.
+
+    Used after a successful lazy CUDA download so the freshly installed
+    DLLs are picked up cleanly by a fresh CTranslate2 import.
+    """
+    import subprocess
+
+    if getattr(sys, "frozen", False):
+        argv = [sys.executable] + sys.argv[1:]
+    else:
+        argv = [sys.executable, "-m", "wispy"] + sys.argv[1:]
+    print("[wispy] Restarting ...")
+    subprocess.Popen(argv)
+    sys.exit(0)
+
+
+def _maybe_offer_cuda_install(cfg: Config, app_dir: Path) -> None:
+    """Offer to download the CUDA runtime bundle on first start with a NVIDIA GPU.
+
+    No-op when device is forced to "cpu", when no NVIDIA GPU is detected,
+    or when the cuda/ directory is already populated.
+    """
+    if cfg.device == "cpu":
+        return
+    if not has_nvidia_gpu():
+        return
+    if is_cuda_installed(app_dir):
+        return
+
+    print("[gpu] NVIDIA GPU detected.")
+    print("[gpu] CUDA runtime is not installed yet (~1.5 GB download).")
+    try:
+        answer = input("[gpu] Download CUDA runtime now? [y/N]: ").strip().lower()
+    except EOFError:
+        # No interactive stdin (e.g. piped, scripted) — default to "no" so we
+        # do not freeze the start.
+        answer = ""
+
+    if answer not in ("y", "yes", "j", "ja"):
+        print("[gpu] Skipping CUDA install. wispy will run on CPU.")
+        return
+
+    release = fetch_latest_cuda_release()
+    if release is None:
+        print("[gpu] No CUDA release found on GitHub — running on CPU.")
+        return
+
+    if install_cuda_bundle(release, app_dir):
+        _restart_wispy()
+    else:
+        print("[gpu] CUDA install failed — running on CPU.")
 
 
 def main():
@@ -117,6 +178,13 @@ def main():
     print(f"[wispy] vocabulary  = {len(vocabulary)} term(s) loaded")
     print(f"[wispy] hotkey={cfg.hotkey}, mode={cfg.record_mode}, "
           f"model={cfg.model_name}, device={cfg.device}, lang={cfg.language}")
+
+    # --- Lazy CUDA install on first start with a NVIDIA GPU ----------------
+    _maybe_offer_cuda_install(cfg, app_dir)
+
+    # Make CTranslate2 see <app_dir>/cuda/ when looking for the NVIDIA DLLs.
+    # No-op on CPU systems and on Linux/macOS dev runs.
+    add_cuda_to_dll_search_path(app_dir)
 
     # --- Background update check (skipped when --update was used this run) ---
     if cfg.update_check and not args.update:

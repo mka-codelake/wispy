@@ -14,8 +14,16 @@ model_path: null
 model_hub_id: "dropbox-dash/faster-whisper-large-v3-turbo"
 
 # --- Compute ------------------------------------------------------------
-device: "cuda"            # v1: "cuda" only. CPU fallback is a future feature.
-compute_type: "float16"   # "float16" matches cuda; "int8" would be cpu.
+# device:
+#   "auto" (default) - use NVIDIA GPU when CUDA libs are present, else CPU
+#   "cuda"           - force GPU; fails to start without the cuda/ bundle
+#   "cpu"            - force CPU even on machines with a NVIDIA GPU
+device: "auto"
+
+# compute_type:
+#   "default" - best precision for the chosen device (float16 on GPU, int8 on CPU)
+#   "float16" / "int8_float16" / "int8" - explicit override
+compute_type: "default"
 
 # --- Language -----------------------------------------------------------
 language: "de"            # ISO code, e.g. "de", "en", "fr"

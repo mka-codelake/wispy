@@ -26,13 +26,19 @@ _CUDA_DLL_HINTS = (
 
 
 class Transcriber:
-    """Loads the Whisper model once, then transcribes audio arrays."""
+    """Loads the Whisper model once, then transcribes audio arrays.
+
+    With device="auto" CTranslate2 picks GPU when available and falls back
+    to CPU otherwise. wispy registers the cuda/ DLL directory before this
+    constructor runs (see main.py) so CTranslate2 can find the bundled
+    NVIDIA libraries when the user has installed them.
+    """
 
     def __init__(
         self,
         model_path: Path,
-        device: str = "cuda",
-        compute_type: str = "float16",
+        device: str = "auto",
+        compute_type: str = "default",
         language: str = "de",
         beam_size: int = 5,
         initial_prompt: str = "",
@@ -61,15 +67,40 @@ class Transcriber:
                 local_files_only=True,
             )
         except Exception as e:
+            if self._looks_like_cuda_failure(e, device):
+                # Fall back to CPU once before giving up. This matches the
+                # plugin-model promise that wispy stays usable even when the
+                # local CUDA bundle is missing or incompatible.
+                print("[transcribe] CUDA load failed — falling back to CPU.", file=sys.stderr)
+                print(f"[transcribe] Reason: {e}", file=sys.stderr)
+                try:
+                    self.model = WhisperModel(
+                        str(model_path),
+                        device="cpu",
+                        compute_type="int8",
+                        local_files_only=True,
+                    )
+                    print("[transcribe] Model ready on CPU (fallback).")
+                    return
+                except Exception as e2:
+                    self._explain_load_error(e2, "cpu")
+                    raise
             self._explain_load_error(e, device)
             raise
         print("[transcribe] Model ready.")
 
     @staticmethod
+    def _looks_like_cuda_failure(err: Exception, device: str) -> bool:
+        if device not in ("cuda", "auto"):
+            return False
+        msg = str(err).lower()
+        return any(h in msg for h in _CUDA_DLL_HINTS)
+
+    @staticmethod
     def _explain_load_error(err: Exception, device: str) -> None:
         """Print a readable hint for common model-loading failures."""
         msg = str(err).lower()
-        looks_like_cuda_dll = device == "cuda" and any(h in msg for h in _CUDA_DLL_HINTS)
+        looks_like_cuda_dll = device in ("cuda", "auto") and any(h in msg for h in _CUDA_DLL_HINTS)
 
         print("", file=sys.stderr)
         print("[transcribe] ERROR: failed to load Whisper model.", file=sys.stderr)
@@ -81,12 +112,11 @@ class Transcriber:
                 "[transcribe] This looks like a missing CUDA runtime library\n"
                 "             (cuBLAS / cuDNN / cudart).\n"
                 "\n"
-                "  In a portable wispy bundle these DLLs should live in\n"
-                "  _internal\\ next to wispy.exe. If they are missing, the\n"
-                "  bundle was built without the nvidia-* pip packages.\n"
-                "\n"
-                "  When running from source, install them via:\n"
-                "    pip install nvidia-cublas-cu12 nvidia-cudnn-cu12\n"
+                "  wispy ships without CUDA libraries — they are downloaded\n"
+                "  on demand into <app_dir>/cuda/ on machines with an NVIDIA\n"
+                "  GPU. If you skipped that prompt, restart wispy and answer\n"
+                "  'y' to download the CUDA runtime, or set device: cpu in\n"
+                "  config.yaml to force CPU mode.\n"
                 "\n"
                 "  NVIDIA driver itself must also be installed system-wide\n"
                 "  (check: `nvidia-smi` in a terminal).\n",
