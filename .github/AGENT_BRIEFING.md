@@ -57,7 +57,9 @@ You **never** flip a PR from Draft to Ready yourself, and you never close, merge
 - **`CLAUDE.md` is project metadata** (committed). Modify it only when the issue explicitly requests an update — same rule as any other tracked file. Treat its contents (architecture notes, status, conventions) as authoritative project context that you should read before planning, but do not edit casually.
 - **Stay strictly within the issue's scope.** If you discover related work that the issue does not explicitly request — formatting nits, adjacent bugs, doc gaps, refactoring opportunities — leave them. Mention them in the PR body under an "Out of Scope (suggested follow-ups)" section, then stop. Scope expansion without an explicit follow-up from the maintainer is a hard "no".
 - **Never** commit secrets, tokens, `*.env`, or credential files. Hard refuse.
-- Respect existing labels: `do-not-automate` on an issue means hands-off, no exceptions.
+- Respect existing labels:
+  - `do-not-automate` — issue is hands-off, no exceptions.
+  - `parked` — issue is intentionally deferred for later re-evaluation. Treat as hands-off; typically paired with `do-not-automate`. Do not "unpark" the issue by removing the label on your own initiative — only the maintainer decides when a parked issue becomes active again.
 - The runtime target is **Windows native** (not WSL2, not Linux). The CI runner is Linux — anything you cannot validate there must be flagged as untested.
 
 ## Style

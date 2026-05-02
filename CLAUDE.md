@@ -98,3 +98,11 @@ Kanonische Version lebt in `pyproject.toml`; `__version__` wird via `importlib.m
 | Toggle: F9, sprechen, F9 | Transkription erscheint |
 | < 0.3s druecken und loslassen | "(too short, skipped)" in Konsole |
 | Clipboard hatte vorher Inhalt | Nach Diktieren alter Inhalt zurueck |
+
+## Issue-Label-Konventionen
+
+- `do-not-automate` -- Bot-Hands-off, Issue wird bei `@claude`-Triggern nicht aufgegriffen.
+- `parked` -- bewusst zurueckgestellt, spaeter re-evaluieren. Wird in der Regel mit `do-not-automate` kombiniert. Begruendung gehoert als Comment ans Issue (Datum + Warum).
+  - **Re-Aktivierung**: beide Labels entfernen.
+  - **Endgueltige Ablehnung**: Issue schliessen mit Reason `not planned`, Label `wontfix` setzen.
+- Workflow-Detail-Regeln fuer Bot-Verhalten: siehe `.github/AGENT_BRIEFING.md`.
