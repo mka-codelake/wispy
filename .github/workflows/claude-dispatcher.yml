@@ -67,7 +67,10 @@ jobs:
       - name: Auto-create draft PR if branch was created
         if: success()
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use the PAT, not GITHUB_TOKEN: PRs created with the default token
+          # do not trigger pull_request workflows (GitHub self-loop protection),
+          # which would prevent the reviewer from running on the initial PR.
+          GH_TOKEN: ${{ secrets.WORKFLOW_BOT_PAT }}
           ISSUE: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
