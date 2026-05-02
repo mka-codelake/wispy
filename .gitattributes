@@ -1,0 +1,25 @@
+# Repository-wide line-ending normalization.
+# Single source of truth across operating systems — independent of each
+# developer's local `core.autocrlf` setting. Working tree on every OS
+# materializes with the line endings declared here.
+
+# Default: auto-detect text vs. binary, store as LF in repo, materialize
+# as LF in the working tree.
+* text=auto eol=lf
+
+# Windows tooling files: CRLF in repo and working tree.
+# Some PowerShell hosts and cmd.exe quirks expect Windows-style endings.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Known binary types: never convert.
+*.zip binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pdf binary
+*.bin binary
+*.exe binary
+*.dll binary
