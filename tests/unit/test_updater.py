@@ -64,31 +64,40 @@ class TestStagingPaths:
         assert updater._backup_dir(fake_app_dir) == fake_app_dir / "update-backup"
 
 
-class TestFetchReleaseData:
-    def _make_response(self, payload: dict) -> MagicMock:
+class TestFetchReleases:
+    def _make_response(self, payload) -> MagicMock:
         resp = MagicMock()
         resp.read.return_value = json.dumps(payload).encode("utf-8")
         resp.__enter__ = MagicMock(return_value=resp)
         resp.__exit__ = MagicMock(return_value=False)
         return resp
 
-    def test_returns_json_payload_on_success(self, mocker):
-        payload = {"tag_name": "v0.4.0", "assets": []}
+    def test_returns_list_payload_on_success(self, mocker):
+        payload = [
+            {"tag_name": "v0.4.0", "assets": []},
+            {"tag_name": "v0.3.0", "assets": []},
+        ]
         mocker.patch("urllib.request.urlopen", return_value=self._make_response(payload))
-
-        result = updater._fetch_release_data()
-
+        result = updater._fetch_releases()
         assert result == payload
+
+    def test_returns_none_when_payload_is_not_a_list(self, mocker):
+        # GitHub returns an error envelope dict instead of the expected list.
+        mocker.patch(
+            "urllib.request.urlopen",
+            return_value=self._make_response({"message": "rate limited"}),
+        )
+        assert updater._fetch_releases() is None
 
     def test_returns_none_on_network_error(self, mocker):
         mocker.patch(
             "urllib.request.urlopen", side_effect=ConnectionError("network down")
         )
-        assert updater._fetch_release_data() is None
+        assert updater._fetch_releases() is None
 
     def test_returns_none_on_timeout(self, mocker):
         mocker.patch("urllib.request.urlopen", side_effect=TimeoutError("slow"))
-        assert updater._fetch_release_data() is None
+        assert updater._fetch_releases() is None
 
 
 class TestFindStagedZip:

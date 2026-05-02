@@ -30,13 +30,18 @@ class TestPowerShellFilterMatchesPythonWhitelist:
         self, tmp_path: Path
     ):
         app_dir = tmp_path / "app"
-        bundle = tmp_path / "bundle"
+        app_bundle = tmp_path / "app-bundle"
+        cuda_bundle = tmp_path / "cuda-bundle"
         backup = tmp_path / "backup"
-        app_dir.mkdir()
-        bundle.mkdir()
-        backup.mkdir()
+        for d in (app_dir, app_bundle, cuda_bundle, backup):
+            d.mkdir()
 
-        script = updater._build_swap_script(app_dir, bundle, backup)
+        script = updater._build_swap_script(
+            app_dir=app_dir,
+            new_app_bundle=app_bundle,
+            new_cuda_bundle=cuda_bundle,
+            backup=backup,
+        )
 
         for name in updater._SWAP_WHITELIST:
             occurrences = script.count(f"$_.Name -ne '{name}'")
@@ -46,18 +51,23 @@ class TestPowerShellFilterMatchesPythonWhitelist:
 
     def test_filter_uses_sorted_order_for_determinism(self, tmp_path: Path):
         app_dir = tmp_path / "app"
-        bundle = tmp_path / "bundle"
+        app_bundle = tmp_path / "app-bundle"
+        cuda_bundle = tmp_path / "cuda-bundle"
         backup = tmp_path / "backup"
-        app_dir.mkdir()
-        bundle.mkdir()
-        backup.mkdir()
+        for d in (app_dir, app_bundle, cuda_bundle, backup):
+            d.mkdir()
 
-        script = updater._build_swap_script(app_dir, bundle, backup)
+        script = updater._build_swap_script(
+            app_dir=app_dir,
+            new_app_bundle=app_bundle,
+            new_cuda_bundle=cuda_bundle,
+            backup=backup,
+        )
 
-        # Extract every '$_.Name -ne '<name>'' fragment in script order
+        # Extract every '$_.Name -ne '<name>'' fragment in script order.
+        # The plugin-model app-swap block has two filter loops (Move + Copy),
+        # so each whitelist entry must appear exactly twice in sorted order.
         fragments = re.findall(r"\$_\.Name -ne '([^']+)'", script)
-        # Each whitelist name should appear in both filter loops (move + copy),
-        # so the sequence is the sorted list repeated twice.
         wl_sorted = sorted(updater._SWAP_WHITELIST)
         assert fragments == wl_sorted * 2, (
             f"Filter order is not 'sorted whitelist x2'.\n"

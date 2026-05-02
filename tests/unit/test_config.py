@@ -29,6 +29,7 @@ class TestConfigDefaults:
             "initial_prompt",
             "restore_clipboard",
             "update_check",
+            "auto_update",
         }
         assert names == expected
 
@@ -43,6 +44,7 @@ class TestConfigDefaults:
         assert cfg.beam_size == 5
         assert cfg.restore_clipboard is True
         assert cfg.update_check is True
+        assert cfg.auto_update is False
         assert cfg.model_path is None
         assert cfg.audio_device is None
         assert cfg.initial_prompt == ""
