@@ -1,0 +1,119 @@
+name: Release CUDA Bundle
+
+# Builds the standalone CUDA runtime bundle that wispy lazy-loads at first
+# run on machines with an NVIDIA GPU. Triggered by a cuda-vX.Y.Z tag whose
+# version mirrors the CUDA Toolkit version (e.g. cuda-v12.9.1). Optional
+# build counter suffix is allowed for re-rolls (cuda-v12.9.1-b2).
+#
+# Asset layout inside wispy-cuda-vX.Y.Z.zip:
+#   cuda/
+#     cublas64_12.dll
+#     cublasLt64_12.dll
+#     cudnn_*.dll
+#     cudart64_12.dll
+#     _version.txt   <- the tag's version string (e.g. "12.9.1")
+#
+# wispy reads cuda/_version.txt at startup to compare against the latest
+# released cuda-* tag and decide whether the local CUDA bundle is current.
+
+on:
+  push:
+    tags:
+      - 'cuda-v[0-9]*.[0-9]*.[0-9]*'
+      - 'cuda-v[0-9]*.[0-9]*.[0-9]*-*'
+
+permissions:
+  contents: write
+
+jobs:
+  release-cuda:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract CUDA version from tag
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          # Strip the leading 'cuda-v' and any '-bN' build-counter suffix.
+          $version = $tag -replace '^cuda-v', '' -replace '-b[0-9]+$', ''
+          if ($version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
+              Write-Error "Tag '$tag' does not parse to a CUDA version (got '$version')."
+              exit 1
+          }
+          Write-Host "Tag      : $tag"
+          Write-Host "Version  : $version"
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Create venv and install CUDA runtime packages
+        shell: pwsh
+        run: |
+          uv venv .venv-cuda --python 3.12
+          uv pip install --python .venv-cuda\Scripts\python.exe `
+              nvidia-cublas-cu12 `
+              nvidia-cudnn-cu12 `
+              nvidia-cuda-runtime-cu12
+
+      - name: Collect DLLs into staging layout
+        shell: pwsh
+        run: |
+          $stage = "dist\cuda-staging\cuda"
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+
+          # nvidia-* packages drop their DLLs under
+          # <venv>/Lib/site-packages/nvidia/<libname>/bin/*.dll
+          $sitePkgs = ".venv-cuda\Lib\site-packages\nvidia"
+          if (-not (Test-Path $sitePkgs)) {
+              Write-Error "Expected $sitePkgs after pip install, but it is missing."
+              exit 1
+          }
+
+          $seen = @{}
+          $copied = 0
+          Get-ChildItem -Path $sitePkgs -Filter *.dll -Recurse | ForEach-Object {
+              $key = $_.Name.ToLowerInvariant()
+              if ($seen.ContainsKey($key)) { return }
+              $seen[$key] = $true
+              Copy-Item $_.FullName -Destination (Join-Path $stage $_.Name) -Force
+              $copied++
+          }
+
+          if ($copied -eq 0) {
+              Write-Error "No DLLs were collected — nvidia packages did not ship any?"
+              exit 1
+          }
+
+          # Write the version marker file consumed by wispy at runtime.
+          "${{ steps.ver.outputs.version }}" | Out-File -FilePath (Join-Path $stage "_version.txt") -Encoding utf8 -NoNewline
+
+          $totalBytes = (Get-ChildItem -Recurse $stage | Measure-Object -Property Length -Sum).Sum
+          $totalMb = "{0:N0} MB" -f ($totalBytes / 1MB)
+          Write-Host "Collected $copied unique DLLs ($totalMb total) into $stage"
+
+      - name: Create CUDA bundle ZIP
+        shell: pwsh
+        run: |
+          $zipName = "wispy-${{ github.ref_name }}.zip"
+          $zipPath = "dist\$zipName"
+          if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
+          # Compress the cuda/ directory so the ZIP top-level is `cuda/...`
+          Compress-Archive -Path "dist\cuda-staging\cuda" -DestinationPath $zipPath
+          $zipBytes = (Get-Item $zipPath).Length
+          $zipMb = "{0:N0} MB" -f ($zipBytes / 1MB)
+          Write-Host "ZIP ready: $zipPath ($zipMb)"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-b') }}
+          files: dist/wispy-${{ github.ref_name }}.zip
