@@ -31,8 +31,8 @@ class Transcriber:
     def __init__(
         self,
         model_path: Path,
-        device: str = "cuda",
-        compute_type: str = "float16",
+        device: str = "auto",
+        compute_type: str = "default",
         language: str = "de",
         beam_size: int = 5,
         initial_prompt: str = "",
@@ -69,7 +69,7 @@ class Transcriber:
     def _explain_load_error(err: Exception, device: str) -> None:
         """Print a readable hint for common model-loading failures."""
         msg = str(err).lower()
-        looks_like_cuda_dll = device == "cuda" and any(h in msg for h in _CUDA_DLL_HINTS)
+        looks_like_cuda_dll = device in ("cuda", "auto") and any(h in msg for h in _CUDA_DLL_HINTS)
 
         print("", file=sys.stderr)
         print("[transcribe] ERROR: failed to load Whisper model.", file=sys.stderr)
@@ -81,11 +81,13 @@ class Transcriber:
                 "[transcribe] This looks like a missing CUDA runtime library\n"
                 "             (cuBLAS / cuDNN / cudart).\n"
                 "\n"
-                "  In a portable wispy bundle these DLLs should live in\n"
-                "  _internal\\ next to wispy.exe. If they are missing, the\n"
-                "  bundle was built without the nvidia-* pip packages.\n"
+                "  If you are using the standard CPU build: set `device: auto`\n"
+                "  in config.yaml (CUDA DLLs are not included in the CPU build).\n"
                 "\n"
-                "  When running from source, install them via:\n"
+                "  If you need GPU acceleration: download the GPU build\n"
+                "  (wispy-vX.Y.Z-gpu.zip) from the GitHub releases page.\n"
+                "\n"
+                "  When running from source with GPU, install CUDA libs via:\n"
                 "    pip install nvidia-cublas-cu12 nvidia-cudnn-cu12\n"
                 "\n"
                 "  NVIDIA driver itself must also be installed system-wide\n"

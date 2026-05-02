@@ -14,8 +14,8 @@ class Config:
     model_name: str = "large-v3-turbo"
     model_path: Optional[str] = None
     model_hub_id: str = "dropbox-dash/faster-whisper-large-v3-turbo"
-    device: str = "cuda"
-    compute_type: str = "float16"
+    device: str = "auto"
+    compute_type: str = "default"
     language: str = "de"
     sample_rate: int = 16000
     audio_device: Optional[int] = None

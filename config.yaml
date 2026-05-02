@@ -14,8 +14,8 @@ model_path: null
 model_hub_id: "dropbox-dash/faster-whisper-large-v3-turbo"
 
 # --- Compute ------------------------------------------------------------
-device: "cuda"            # v1: "cuda" only. CPU fallback is a future feature.
-compute_type: "float16"   # "float16" matches cuda; "int8" would be cpu.
+device: "auto"            # "auto" = GPU if CUDA available, else CPU. "cuda" forces GPU.
+compute_type: "default"   # "default" = best type for the device (float16 on GPU, int8 on CPU).
 
 # --- Language -----------------------------------------------------------
 language: "de"            # ISO code, e.g. "de", "en", "fr"
