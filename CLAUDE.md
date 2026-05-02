@@ -6,7 +6,7 @@ Minimalistisches Push-to-Talk Diktiertool fuer Windows. Nutzer drueckt Hotkey, s
 
 ## Technischer Stack
 
-- **STT**: `faster-whisper` (CTranslate2/CUDA) mit Whisper Large V3 Turbo
+- **STT**: `faster-whisper` (CTranslate2) mit Whisper Large V3 Turbo. CUDA optional via Lazy-Loading; CPU-Default lauffaehig auch ohne NVIDIA-Hardware.
 - **Audio**: `sounddevice` (PortAudio), 16kHz mono
 - **Hotkey**: `keyboard` Library, systemweit
 - **Text-Ausgabe**: `pyperclip` + `keyboard` (Clipboard-Paste via Ctrl+V)
@@ -20,7 +20,31 @@ Minimalistisches Push-to-Talk Diktiertool fuer Windows. Nutzer drueckt Hotkey, s
 - Kein GUI (v1) -- Konsolen-Output reicht
 - Kein eigener VAD -- Push-to-Talk reicht; faster-whisper hat Silero-VAD
 - **Muss nativ unter Windows laufen** (nicht WSL2) -- wegen Mikrofon, Hotkeys, Tastatur-Simulation
-- **Update-Mechanismus** (`updater.py`): Background-Thread prueft GitHub-API auf neue Releases; expliziter `--update`-Start laedt ZIP nach `update-staging/`; beim naechsten normalen Start wird das ZIP ausgepackt und ein PowerShell-Hilfsskript startet den Swap (wispy beendet sich sofort, PS verschiebt alte Dateien nach `update-backup/`, kopiert neue, startet wispy neu). **Whitelist** -- nie angefasst: `config.yaml`, `models/`, `hotwords.txt`. Nur im frozen Build (wispy.exe) aktiv; per `update_check: false` in config.yaml vollstaendig deaktivierbar.
+- **Update-Mechanismus** (`updater.py`): Beim Start prueft wispy zwei Asset-Streams unabhaengig -- App-Bundle (Tag `vX.Y.Z`) und CUDA-Bundle (Tag `cuda-vX.Y.Z`). Drei Config-Stufen: `update_check: false` (kein Check), `update_check: true, auto_update: false` (Default -- checken + prompten + selbst-Restart), `update_check: true, auto_update: true` (silent). Bei Update wird das passende Asset gezogen, Swap durchgefuehrt, wispy neu gestartet -- alles in einem Lauf, ohne dass der User ein zweites Mal klickt. **Whitelist** beim Swap: `config.yaml`, `models/`, `hotwords.txt`, `cuda/`. Nur im frozen Build aktiv.
+
+### Bundle-Architektur -- Plugin-/Component-Modell
+
+Zwei unabhaengig versionierte Artefakte auf GitHub Releases:
+
+- **App-Bundle** (~400 MB): App-Code + Python-Runtime + non-CUDA libs. Tag-Schema `vX.Y.Z`, Sanity-Check gegen `pyproject.toml` im CI. Asset-Name `wispy-vX.Y.Z.zip`.
+- **CUDA-Bundle** (~1.5 GB): nur die CUDA-DLLs aus den `nvidia-*`-pip-Paketen. Tag-Schema `cuda-vX.Y.Z` (Mirror der CUDA-Toolkit-Version, optional Build-Counter `cuda-vX.Y.Z-bN`). Asset-Name `wispy-cuda-vX.Y.Z.zip`.
+
+Lokales Layout:
+
+```
+app_dir/
+  wispy.exe
+  _internal/        # Python + non-CUDA libs (immer)
+  cuda/             # optional, lazy nachgeladen
+    cublas64_12.dll
+    cudnn_*.dll
+    cudart64_12.dll
+    _version.txt    # vom CI geschrieben
+  config.yaml
+  models/
+```
+
+**Lazy-CUDA-Loading-Flow**: Beim Start prueft wispy, ob eine NVIDIA-GPU vorhanden ist (via `nvidia-smi` / WMI / Registry). Wenn ja UND `cuda/` fehlt -> Konsolen-Prompt "CUDA-Treiber nachladen? [y/n]". Bei `y` wird das CUDA-Bundle nach `cuda/` geladen. Bei `n` oder keiner GPU -> CPU-Modus (`device: "auto"` ist konfiguriert). CTranslate2 findet die DLLs ueber `os.add_dll_directory(app_dir / "cuda")` vor dem `WhisperModel()`-Aufruf. Bei CUDA-Fehler zur Laufzeit -> Fallback CPU mit Konsolen-Hinweis.
 
 ## Projektstruktur
 
@@ -39,7 +63,9 @@ src/wispy/
   config.py         # Config-Laden (YAML -> dataclass)
   paths.py          # app_dir / Modell-Pfad-Aufloesung (src-aware + frozen-aware)
   model_fetch.py    # First-run HuggingFace-Snapshot-Download
-  updater.py        # Update-Mechanismus: Check (Background-Thread), Staged-Download, Swap-Trigger
+  gpu_detect.py     # NVIDIA-GPU-Detection beim Start (nvidia-smi / WMI / Registry)
+  cuda_loader.py    # Lazy-Download des CUDA-Bundles + os.add_dll_directory
+  updater.py        # Update-Mechanismus: dual-stream Check, Asset-Auswahl, Self-Restart-Swap
 
 pyproject.toml      # Package-Metadaten + Dependencies (setuptools-Backend)
 config.yaml         # Standard-Konfiguration im Repo-Root
@@ -67,30 +93,34 @@ pip install -e .
 python -m wispy
 ```
 
+Erster Start mit NVIDIA-GPU: optionaler Konsolen-Prompt zum CUDA-Bundle-Download (~1.5 GB nach `<app_dir>/cuda/`). Bei `n` oder keiner GPU laeuft wispy auf CPU.
+
 Erster Start laedt Whisper-Modell herunter (~1.6 GB nach `<repo-root>/models/large-v3-turbo/`), danach gecached.
 `keyboard`-Library braucht Admin-Rechte -- `main.py::_elevate_and_exit()` triggert UAC automatisch, re-launcht `python -m wispy <args>` (Source-Run) bzw. `wispy.exe <args>` (Frozen) mit "runas".
 
 ## Release
 
-Kanonische Version lebt in `pyproject.toml`; `__version__` wird via `importlib.metadata` daraus abgeleitet.
+Kanonische App-Version lebt in `pyproject.toml`; `__version__` wird via `importlib.metadata` daraus abgeleitet.
 
-**Kanonischer Release-Weg (Tag-Push → CI)**: Version in `pyproject.toml` bumpen → committen → `git tag vX.Y.Z && git push origin main --tags`. Der Workflow `.github/workflows/release.yml` baut automatisch auf `windows-latest`, packt `wispy-vX.Y.Z.zip` und erstellt den GitHub-Release mit generierten Release Notes.
+**App-Release** (Tag `vX.Y.Z`): Version in `pyproject.toml` bumpen -> committen -> `git tag vX.Y.Z && git push origin main --tags`. Workflow `.github/workflows/release.yml` baut `wispy-vX.Y.Z.zip` (App-Code, kein CUDA) auf `windows-latest` und published.
 
-**Manueller Fallback**: `build.ps1 -CreateZip` → `gh release create` (Details in `CONTRIBUTING.md`).
+**CUDA-Release** (Tag `cuda-vX.Y.Z`): manueller Tag-Push, z.B. `git tag cuda-v12.9.1 && git push origin cuda-v12.9.1`. Workflow `.github/workflows/release-cuda.yml` (siehe Phase 1 der lokalen Implementation) installiert `nvidia-cublas-cu12` + `nvidia-cudnn-cu12` + `nvidia-cuda-runtime-cu12` via uv, packt die DLLs samt `_version.txt` in `wispy-cuda-vX.Y.Z.zip` und published als separater Release.
+
+CUDA-Releases sind selten (gekoppelt an CUDA-Toolkit-Bumps). App-Releases laufen frei davon. Updater im Tool prueft beide Streams unabhaengig.
+
+**Manueller Fallback fuer App**: `build.ps1 -CreateZip` -> `gh release create` (Details in `CONTRIBUTING.md`).
 
 ## Umsetzungsstatus
 
 - [x] Projektstruktur (src-Layout, pyproject.toml, .gitignore)
-- [x] config.py -- Config-Dataclass + YAML-Loader
-- [x] config.yaml -- Standardwerte
-- [x] audio.py -- Recorder-Klasse
-- [x] transcribe.py -- Transcriber-Klasse
-- [x] hotkey.py -- HotkeyListener
-- [x] output.py -- Clipboard-Paste
-- [x] feedback.py -- Beep-Sounds
-- [x] paths.py + model_fetch.py -- app-dir + First-run-Download
-- [x] main.py -- Main-Loop, alles zusammengesteckt
-- [x] Portable-Build via build/build.ps1 + build/wispy.spec
+- [x] config.py / config.yaml / audio.py / transcribe.py / hotkey.py / output.py / feedback.py / paths.py / model_fetch.py / main.py -- v1-Stand
+- [x] Portable-Build via build/build.ps1 + build/wispy.spec (monolithisch, wird auf Plugin-Modell umgestellt)
+- [x] Update-Mechanismus v1 (`updater.py`, monolithisch)
+- [ ] **Plugin-Modell -- App-Bundle ohne CUDA** (in Arbeit, Phase 1)
+- [ ] **CUDA-Bundle als separates Release-Artefakt** (Phase 1)
+- [ ] **`gpu_detect.py` + `cuda_loader.py` -- Lazy-CUDA-Loading** (Phase 2)
+- [ ] **Updater dual-stream + selbst-Restart** (Phase 3)
+- [ ] **UI/UX-Polishing** (Phase 4 -- Progress-Anzeige, harmonisierte Konsolen-Logs)
 
 ## Verifikation
 
