@@ -86,6 +86,9 @@ jobs:
                - Any change to `.gitignore` that the issue did not explicitly request.
                - Any change to root-level config or convention files (`pyproject.toml`, `setup.cfg`, `.editorconfig`, etc.) not justified by the issue.
                - Any file in the diff that is not directly necessary for the issue's acceptance criteria.
+            7. **Briefing compliance — flag these as bot-fixable findings, not human-only:**
+               - **PR title marker:** if the change touches Windows-only APIs (audio devices, hotkeys, clipboard, winsound, UAC elevation, PowerShell helpers, registry, Windows-specific paths), the title MUST contain the literal marker `[needs-windows-test]` per AGENT_BRIEFING.md Phase 2 test-strategy rule. Missing marker → bot-fixable.
+               - **PR body sections:** the PR description MUST contain `## Analysis`, `## Plan`, and `## Result` sections per AGENT_BRIEFING.md Phase 2/3. If the body contains only the auto-generated dispatcher boilerplate (e.g. starts with "Auto-created by claude-dispatcher"), the bot must rewrite it via `gh pr edit --body` after the auto-draft-PR step. Missing sections → bot-fixable.
 
             ## Step 3 — Classify each finding
 
