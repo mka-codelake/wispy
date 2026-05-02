@@ -20,6 +20,7 @@ Minimalistisches Push-to-Talk Diktiertool fuer Windows. Nutzer drueckt Hotkey, s
 - Kein GUI (v1) -- Konsolen-Output reicht
 - Kein eigener VAD -- Push-to-Talk reicht; faster-whisper hat Silero-VAD
 - **Muss nativ unter Windows laufen** (nicht WSL2) -- wegen Mikrofon, Hotkeys, Tastatur-Simulation
+- **Update-Mechanismus** (`updater.py`): Background-Thread prueft GitHub-API auf neue Releases; expliziter `--update`-Start laedt ZIP nach `update-staging/`; beim naechsten normalen Start wird das ZIP ausgepackt und ein PowerShell-Hilfsskript startet den Swap (wispy beendet sich sofort, PS verschiebt alte Dateien nach `update-backup/`, kopiert neue, startet wispy neu). **Whitelist** -- nie angefasst: `config.yaml`, `models/`, `hotwords.txt`. Nur im frozen Build (wispy.exe) aktiv; per `update_check: false` in config.yaml vollstaendig deaktivierbar.
 
 ## Projektstruktur
 
@@ -38,6 +39,7 @@ src/wispy/
   config.py         # Config-Laden (YAML -> dataclass)
   paths.py          # app_dir / Modell-Pfad-Aufloesung (src-aware + frozen-aware)
   model_fetch.py    # First-run HuggingFace-Snapshot-Download
+  updater.py        # Update-Mechanismus: Check (Background-Thread), Staged-Download, Swap-Trigger
 
 pyproject.toml      # Package-Metadaten + Dependencies (setuptools-Backend)
 config.yaml         # Standard-Konfiguration im Repo-Root

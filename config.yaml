@@ -34,3 +34,7 @@ initial_prompt: ""
 
 # --- Output -------------------------------------------------------------
 restore_clipboard: true   # Restore previous clipboard after pasting
+
+# --- Updates ------------------------------------------------------------
+# Set to false to disable the background version check and --update entirely.
+update_check: true

@@ -192,6 +192,52 @@ Internal imports use relative imports (`from .audio import Recorder`). Exception
 
 ---
 
+## Auto-Update
+
+wispy checks for updates in the background on every start and notifies you if a newer release is available. It never downloads anything without your explicit consent.
+
+### How the update flow works
+
+1. **Version check (automatic):** At every start, wispy queries the GitHub release API in a background thread. Dictation is immediately ready — the check does not block startup. If a newer version is available, a message appears in the console:
+   ```
+   [update] Update available: v0.2.0 -> v0.3.0
+   [update] To download, start wispy again with --update
+   ```
+
+2. **Download (explicit, with `--update`):** When you want to fetch the new version, start wispy once with `--update`:
+   ```powershell
+   wispy.exe --update
+   ```
+   The release ZIP is downloaded to `update-staging/` next to `wispy.exe`. Dictation works normally for the rest of that session.
+
+3. **Apply on next normal start (automatic):** On the next regular start (without `--update`), wispy detects the staged ZIP, unpacks it, and launches a PowerShell helper script that performs the swap while wispy is not running. The new version then starts automatically.
+
+### Protected files — never touched during an update
+
+The following files and folders are always excluded from the swap:
+
+| Path | What it contains |
+|---|---|
+| `config.yaml` | Your configuration |
+| `models/` | Downloaded Whisper model (~1.6 GB) |
+| `hotwords.txt` | Your vocabulary list |
+
+### Disable update check
+
+Set `update_check: false` in `config.yaml`:
+
+```yaml
+update_check: false
+```
+
+When disabled, wispy performs no background check at startup, no staging, no swap, and `--update` has no effect (displays a message instead).
+
+### Authentication (optional)
+
+If the repository is private or you hit GitHub's anonymous rate limit, set the `GITHUB_TOKEN` environment variable. wispy uses it automatically as a Bearer token for all API and download requests.
+
+---
+
 ## Contributing
 
 Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first for guidelines on branching, commit conventions, and the pull request process.

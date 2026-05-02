@@ -1,7 +1,7 @@
 """wispy -- Minimal local push-to-talk dictation tool.
 
 Usage:
-    python -m wispy [--config path/to/config.yaml]
+    python -m wispy [--config path/to/config.yaml] [--update]
 """
 
 import argparse
@@ -62,6 +62,13 @@ from .hotkey import HotkeyListener  # noqa: E402
 from .model_fetch import ensure_model_available  # noqa: E402
 from .output import type_text  # noqa: E402
 from .paths import get_app_dir, load_vocabulary, resolve_model_path  # noqa: E402
+from .updater import (  # noqa: E402
+    download_staged_update,
+    find_staged_zip,
+    handle_post_update_start,
+    start_update_check_thread,
+    trigger_swap,
+)
 
 MIN_DURATION_SEC = 0.3
 
@@ -69,11 +76,34 @@ MIN_DURATION_SEC = 0.3
 def main():
     parser = argparse.ArgumentParser(description="wispy -- local push-to-talk dictation")
     parser.add_argument("--config", type=Path, default=None, help="Path to config.yaml")
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help="Download the latest wispy release to the staging folder, then run normally",
+    )
     args = parser.parse_args()
 
     config_path = args.config or default_config_path()
     app_dir = get_app_dir()
     cfg: Config = load_config(config_path)
+
+    # --- Phase 1: post-swap cleanup (backup dir present = swap just succeeded) ---
+    handle_post_update_start(app_dir, __version__)
+
+    # --- Phase 2: apply staged update on normal start (swap + exit) ----------
+    if not args.update and cfg.update_check:
+        staged = find_staged_zip(app_dir)
+        if staged:
+            trigger_swap(staged, app_dir)
+            # trigger_swap exits for frozen builds; returns here only in source runs
+
+    # --- Phase 3: explicit --update flag → download then continue -----------
+    if args.update:
+        if cfg.update_check:
+            download_staged_update(__version__, app_dir)
+        else:
+            print("[update] Update check is disabled (update_check: false in config).")
+
     model_path = resolve_model_path(cfg.model_name, cfg.model_path)
 
     vocabulary = load_vocabulary()
@@ -87,6 +117,10 @@ def main():
     print(f"[wispy] vocabulary  = {len(vocabulary)} term(s) loaded")
     print(f"[wispy] hotkey={cfg.hotkey}, mode={cfg.record_mode}, "
           f"model={cfg.model_name}, device={cfg.device}, lang={cfg.language}")
+
+    # --- Background update check (skipped when --update was used this run) ---
+    if cfg.update_check and not args.update:
+        start_update_check_thread(__version__)
 
     # --- Ensure model is present (first-run download if needed) ----------
     try:
