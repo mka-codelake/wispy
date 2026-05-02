@@ -70,7 +70,11 @@ Erster Start laedt Whisper-Modell herunter (~1.6 GB nach `<repo-root>/models/lar
 
 ## Release
 
-Kanonische Version lebt in `pyproject.toml`; `__version__` wird via `importlib.metadata` daraus abgeleitet. Release-Ablauf siehe `CONTRIBUTING.md` (Bump → Tag → `build.ps1 -CreateZip` → `gh release create`).
+Kanonische Version lebt in `pyproject.toml`; `__version__` wird via `importlib.metadata` daraus abgeleitet.
+
+**Kanonischer Release-Weg (Tag-Push → CI)**: Version in `pyproject.toml` bumpen → committen → `git tag vX.Y.Z && git push origin main --tags`. Der Workflow `.github/workflows/release.yml` baut automatisch auf `windows-latest`, packt `wispy-vX.Y.Z.zip` und erstellt den GitHub-Release mit generierten Release Notes.
+
+**Manueller Fallback**: `build.ps1 -CreateZip` → `gh release create` (Details in `CONTRIBUTING.md`).
 
 ## Umsetzungsstatus
 

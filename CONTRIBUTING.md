@@ -50,44 +50,47 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 
 The canonical version lives **exclusively** in `pyproject.toml` (`version = "X.Y.Z"`).
 `src/wispy/__init__.py` derives `__version__` from it at runtime via `importlib.metadata`.
-Tag schema: `vX.Y.Z` (with "v" prefix). Current line: `version = "X.Y.Z"` in `[project]`.
+Tag schema: `vX.Y.Z` (with "v" prefix).
 
-### Steps (run on Windows — the build requires PyInstaller + CUDA DLLs)
+### Kanonischer Weg: Tag-Push → GitHub Actions (empfohlen)
 
-1. **Bump the version** in `pyproject.toml` (the single source of truth):
+1. **Version bumpen** in `pyproject.toml`:
    ```toml
    version = "0.3.0"
    ```
 
-2. **Commit** the version bump:
+2. **Commit** des Version-Bumps:
    ```powershell
    git add pyproject.toml
    git commit -m "chore: bump version to 0.3.0"
    ```
 
-3. **Tag** the commit:
+3. **Tag setzen und pushen** — CI übernimmt den Rest:
    ```powershell
    git tag v0.3.0
    git push origin main --tags
    ```
 
-4. **Build the bundle and create the ZIP**:
+Der Workflow `.github/workflows/release.yml` prüft automatisch, dass Tag und `pyproject.toml`-Version übereinstimmen, baut das portable Bundle auf `windows-latest` via `build/build.ps1 -CreateZip` und veröffentlicht `wispy-v0.3.0.zip` als GitHub-Release-Asset mit automatisch generierten Release Notes.
+
+### Manueller Fallback (falls CI nicht verfügbar)
+
+> Erfordert eine Windows-Maschine mit `uv`, CUDA 12.x und `gh` installiert.
+
+Nach Schritt 3 oben:
+
+4. **Bundle bauen und ZIP erstellen**:
    ```powershell
    .\build\build.ps1 -CreateZip
    ```
-   This produces `dist\wispy-v0.3.0.zip` (reads the version from `pyproject.toml` automatically).
+   Erzeugt `dist\wispy-v0.3.0.zip` (Version wird automatisch aus `pyproject.toml` gelesen).
 
-5. **Create the GitHub Release** and attach the ZIP:
+5. **GitHub Release erstellen** und ZIP anhängen:
    ```powershell
    gh release create v0.3.0 dist\wispy-v0.3.0.zip `
        --title "wispy v0.3.0" `
        --notes "Brief description of what changed."
    ```
-
-The release is now live on GitHub with the versioned ZIP as an asset.
-
-> **Note:** Steps 4 and 5 require a Windows machine with `uv`, CUDA 12.x, and `gh` installed.
-> Automation via GitHub Actions is planned for Phase 2 (separate issue).
 
 ## Code of Conduct
 
