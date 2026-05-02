@@ -5,6 +5,70 @@ All notable changes to wispy will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-05-03
+
+### Changed
+- **Plugin-/Component-Bundle-Architektur** — die Anwendung und die
+  CUDA-Runtime werden jetzt als zwei unabhängig versionierte
+  Release-Artefakte ausgeliefert: das App-Bundle (`wispy-vX.Y.Z.zip`,
+  ~400 MB) und das CUDA-Bundle (`wispy-cuda-vX.Y.Z.zip`, ~1.5 GB). Vorher
+  enthielt das App-Bundle die CUDA-DLLs direkt und war ~2 GB groß.
+- **Default-Modus auf CPU** — `device: "auto"` ist neuer Default. Auf
+  Systemen ohne NVIDIA-Karte läuft wispy direkt auf CPU. Auf Systemen
+  mit NVIDIA-Karte fragt wispy beim ersten Start einmalig, ob das
+  CUDA-Bundle nachgeladen werden soll.
+
+### Added
+- **Lazy-CUDA-Loading** — beim ersten Start mit erkannter NVIDIA-GPU
+  bietet wispy in der Konsole an, das passende CUDA-Bundle aus den
+  GitHub Releases zu laden. Bei Bestätigung wird das Bundle nach
+  `<app_dir>/cuda/` extrahiert; bei Ablehnung läuft wispy auf CPU
+  weiter.
+- **Dual-Stream Updater** — der Update-Check prüft den App-Stream
+  (`vX.Y.Z`) und den CUDA-Stream (`cuda-vX.Y.Z`) unabhängig. Eine
+  reine App-Aktualisierung lässt das lokale CUDA-Bundle unangetastet
+  und umgekehrt.
+- **Drei Konfigurationsstufen für Updates** in `config.yaml`:
+  - `update_check: false` — kein Check, kein Prompt.
+  - `update_check: true, auto_update: false` — checken und nachfragen
+    (neuer Default).
+  - `update_check: true, auto_update: true` — silent updaten und neu
+    starten.
+- **Selbst-Neustart nach Update** — nach einem erfolgreichen Swap
+  startet wispy automatisch in der neuen Version, ohne dass die
+  Anwendung erneut von Hand gestartet werden muss.
+- **Download-Fortschrittsanzeige** — bei App- und CUDA-Downloads zeigt
+  wispy fortlaufend Fortschritt, Geschwindigkeit und ETA in der
+  Konsole.
+- **Robuster CPU-Fallback in `transcribe.py`** — falls CUDA während der
+  Modell-Ladephase fehlschlägt, fällt wispy automatisch auf CPU
+  (`int8`) zurück und gibt einen klaren Hinweis aus.
+
+### Fixed
+- Ein App-Update überschreibt das lokale CUDA-Bundle nicht mehr —
+  `cuda/` ist jetzt explizit in der Swap-Whitelist (zusätzlich zu
+  `config.yaml`, `models/` und `hotwords.txt`).
+
+### Removed
+- **CUDA-DLLs aus dem App-Bundle**. Sie sind ab v0.4.0 nur noch im
+  separaten CUDA-Bundle enthalten. Wer von v0.3.0 kommt und auf einer
+  NVIDIA-Maschine läuft, wird beim ersten Start mit v0.4.0 einmalig
+  gefragt, ob das CUDA-Bundle nachgeladen werden soll.
+
+### Migration
+
+Wer von **v0.3.0** kommt:
+
+- Update läuft normal über den eingebauten Updater (Konsole zeigt
+  "App update available: v0.3.0 -> v0.4.0").
+- Beim ersten Start nach dem Update fragt wispy nach dem CUDA-Bundle
+  (nur auf Maschinen mit NVIDIA-Karte). `[y]` lädt es nach,
+  `[n]`/Enter überspringt — wispy läuft dann auf CPU.
+- Persönliche `config.yaml` bleibt erhalten. Der frühere Wert
+  `device: "cuda"` führt nach dem Update zu einem expliziten
+  CUDA-Versuch; falls die Bibliotheken nicht (mehr) vorhanden sind,
+  fällt wispy automatisch auf CPU zurück.
+
 ## [0.3.0] — 2026-05-02
 
 ### Added
@@ -24,5 +88,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The optional `GITHUB_TOKEN` environment variable is still honored for
   higher rate limits but never required.
 
+[0.4.0]: https://github.com/mka-codelake/wispy/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/mka-codelake/wispy/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mka-codelake/wispy/releases/tag/v0.2.0
