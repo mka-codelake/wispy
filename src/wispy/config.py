@@ -24,6 +24,7 @@ class Config:
     beam_size: int = 5
     initial_prompt: str = ""
     restore_clipboard: bool = True
+    update_check: bool = True
 
 
 def default_config_path() -> Path:
