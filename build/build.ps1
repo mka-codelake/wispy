@@ -1,7 +1,11 @@
 # build.ps1
 # ---------------------------------------------------------------------------
-# Reproducible build script for the portable wispy Windows bundle.
+# Reproducible build script for the portable wispy Windows bundle (CPU-only).
 # Uses uv (https://github.com/astral-sh/uv) as the Python + package manager.
+#
+# CUDA runtime libraries are NOT bundled here. They live in a separate
+# release artifact (wispy-cuda-vX.Y.Z.zip) and are downloaded lazily by
+# wispy at first run on machines with an NVIDIA GPU. See CLAUDE.md.
 #
 # Prerequisites (once on your build machine):
 #     choco install uv -y
@@ -31,7 +35,7 @@ $BundleDir = Join-Path $DistDir "wispy"
 $PythonVer = "3.12"
 
 Write-Host ""
-Write-Host "=== wispy portable build (uv) ===" -ForegroundColor Cyan
+Write-Host "=== wispy portable build (uv, CPU-only) ===" -ForegroundColor Cyan
 Write-Host "Repo root : $RepoRoot"
 Write-Host "Venv      : $VenvDir"
 Write-Host "Python    : $PythonVer (managed by uv)"
@@ -67,12 +71,8 @@ if (-not (Test-Path $VenvPython)) {
 Write-Host "[build] Installing wispy (editable) and runtime dependencies ..." -ForegroundColor Yellow
 & uv pip install --python $VenvPython -e $RepoRoot
 
-Write-Host "[build] Installing CUDA runtime libs and PyInstaller ..." -ForegroundColor Yellow
-& uv pip install --python $VenvPython `
-    nvidia-cublas-cu12 `
-    nvidia-cudnn-cu12 `
-    nvidia-cuda-runtime-cu12 `
-    pyinstaller
+Write-Host "[build] Installing PyInstaller ..." -ForegroundColor Yellow
+& uv pip install --python $VenvPython pyinstaller
 
 # --- 6. Clean previous build ------------------------------------------------
 if (Test-Path $BundleDir) {
@@ -110,7 +110,7 @@ $BundleBytes = (Get-ChildItem -Recurse $BundleDir | Measure-Object -Property Len
 $BundleSize  = "{0:N0} MB" -f ($BundleBytes / 1MB)
 
 Write-Host ""
-Write-Host "[build] Bundle ready." -ForegroundColor Green
+Write-Host "[build] Bundle ready (CPU-only)." -ForegroundColor Green
 Write-Host "[build] Location : $BundleDir"
 Write-Host "[build] Size     : $BundleSize"
 Write-Host ""

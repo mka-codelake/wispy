@@ -9,6 +9,12 @@ __pycache__/
 .venv/
 venv/
 .venv-build/
+.venv-test/
+
+# --- Pytest / Coverage ---
+.pytest_cache/
+.coverage
+htmlcov/
 
 # --- PyInstaller-Artefakte ---
 # build/ enthaelt Quellen (build.ps1, wispy.spec, README.txt) UND
