@@ -3,23 +3,50 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v[0-9]*.[0-9]*.[0-9]*'
 
 permissions:
   contents: write
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    timeout-minutes: 30
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Version sanity check
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $tagVersion = $tag -replace '^v', ''
+          $tomlContent = Get-Content pyproject.toml -Raw
+          if ($tomlContent -match 'version\s*=\s*"([^"]+)"') {
+              $tomlVersion = $Matches[1]
+          } else {
+              Write-Error "Could not read version from pyproject.toml"
+              exit 1
+          }
+          if ($tagVersion -ne $tomlVersion) {
+              Write-Error "Tag '$tag' does not match pyproject.toml version '$tomlVersion'. Bump pyproject.toml and re-tag."
+              exit 1
+          }
+          Write-Host "Version OK: $tomlVersion"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
-          fetch-depth: 0
+          enable-cache: true
+
+      - name: Build portable bundle + ZIP
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File build/build.ps1 -CreateZip
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: dist/wispy-${{ github.ref_name }}.zip
