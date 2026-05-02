@@ -68,6 +68,10 @@ python -m wispy
 Erster Start laedt Whisper-Modell herunter (~1.6 GB nach `<repo-root>/models/large-v3-turbo/`), danach gecached.
 `keyboard`-Library braucht Admin-Rechte -- `main.py::_elevate_and_exit()` triggert UAC automatisch, re-launcht `python -m wispy <args>` (Source-Run) bzw. `wispy.exe <args>` (Frozen) mit "runas".
 
+## Release
+
+Kanonische Version lebt in `pyproject.toml`; `__version__` wird via `importlib.metadata` daraus abgeleitet. Release-Ablauf siehe `CONTRIBUTING.md` (Bump → Tag → `build.ps1 -CreateZip` → `gh release create`).
+
 ## Umsetzungsstatus
 
 - [x] Projektstruktur (src-Layout, pyproject.toml, .gitignore)

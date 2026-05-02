@@ -13,6 +13,11 @@
 #     powershell -ExecutionPolicy Bypass -File build\build.ps1
 # ---------------------------------------------------------------------------
 
+[CmdletBinding()]
+param(
+    [switch]$CreateZip   # When set, also package dist/wispy/ into wispy-vX.Y.Z.zip
+)
+
 $ErrorActionPreference = "Stop"
 
 # --- 1. Resolve paths --------------------------------------------------------
@@ -109,7 +114,35 @@ Write-Host "[build] Bundle ready." -ForegroundColor Green
 Write-Host "[build] Location : $BundleDir"
 Write-Host "[build] Size     : $BundleSize"
 Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "  1. Smoke test : $BundleDir\wispy.exe"
-Write-Host "  2. Package ZIP: Compress-Archive -Path $BundleDir -DestinationPath $DistDir\wispy.zip"
-Write-Host ""
+
+# --- 10. Optional: create release ZIP ---------------------------------------
+if ($CreateZip) {
+    $TomlPath = Join-Path $RepoRoot "pyproject.toml"
+    $VersionLine = (Get-Content $TomlPath) | Where-Object { $_ -match '^version\s*=\s*"(.+)"' } | Select-Object -First 1
+    if ($VersionLine -match '^version\s*=\s*"(.+)"') {
+        $PkgVersion = $Matches[1]
+    } else {
+        throw "Could not read version from pyproject.toml"
+    }
+
+    $ZipName = "wispy-v$PkgVersion.zip"
+    $ZipPath = Join-Path $DistDir $ZipName
+
+    if (Test-Path $ZipPath) { Remove-Item -Force $ZipPath }
+
+    Write-Host "[build] Creating $ZipName ..." -ForegroundColor Yellow
+    Compress-Archive -Path $BundleDir -DestinationPath $ZipPath
+    $ZipBytes = (Get-Item $ZipPath).Length
+    $ZipSize  = "{0:N0} MB" -f ($ZipBytes / 1MB)
+
+    Write-Host "[build] ZIP ready : $ZipPath ($ZipSize)" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Next step (GitHub Release):" -ForegroundColor Cyan
+    Write-Host "  gh release create v$PkgVersion $ZipPath --title `"wispy v$PkgVersion`" --notes `"<release notes>`""
+    Write-Host ""
+} else {
+    Write-Host "Next steps:" -ForegroundColor Cyan
+    Write-Host "  1. Smoke test : $BundleDir\wispy.exe"
+    Write-Host "  2. Release    : .\build\build.ps1 -CreateZip  (then gh release create ...)"
+    Write-Host ""
+}

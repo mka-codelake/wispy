@@ -54,6 +54,7 @@ if sys.platform == "win32" and not _is_admin():
 
 # Imports that touch native libraries happen only after elevation, so the
 # elevated process is the one that actually loads them.
+from . import __version__  # noqa: E402
 from .audio import Recorder  # noqa: E402
 from .config import Config, default_config_path, load_config  # noqa: E402
 from .feedback import beep_start, beep_stop  # noqa: E402
@@ -78,6 +79,7 @@ def main():
     vocabulary = load_vocabulary()
     hotwords_str = " ".join(vocabulary)
 
+    print(f"[wispy] version     = {__version__}")
     print(f"[wispy] app_dir     = {app_dir}")
     print(f"[wispy] config      = {config_path} "
           f"({'found' if config_path.exists() else 'defaults'})")
