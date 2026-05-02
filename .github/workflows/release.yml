@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - 'v[0-9]*.[0-9]*.[0-9]*'
 
 permissions:
   contents: write
@@ -37,6 +37,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
       - name: Build portable bundle + ZIP
         shell: pwsh
@@ -46,4 +48,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: dist/wispy-${{ github.ref_name }}.zip
