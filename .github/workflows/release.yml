@@ -1,3 +1,11 @@
+# Release workflow — triggered by version tags (vX.Y.Z).
+# Builds the portable Windows bundle via PyInstaller and publishes a GitHub Release.
+#
+# Version sanity check (first step): verifies that the pushed tag matches the version
+# declared in pyproject.toml. This prevents partial releases caused by tagging without
+# bumping the version file — a mismatch fails fast before the build runs, so no
+# half-built artifacts ever reach the release page. Tags containing a hyphen
+# (e.g. v1.0.0-rc1) are automatically marked as pre-release by the publish step.
 name: Release
 
 on:
