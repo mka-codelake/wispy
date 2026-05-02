@@ -15,7 +15,9 @@
 
 [CmdletBinding()]
 param(
-    [switch]$CreateZip   # When set, also package dist/wispy/ into wispy-vX.Y.Z.zip
+    [switch]$CreateZip,  # When set, also package dist/wispy/ into wispy-vX.Y.Z.zip
+    [switch]$Gpu         # When set, install NVIDIA CUDA libs and build a GPU-capable bundle (~2 GB).
+                         # Without this flag the build is CPU-only (~350-600 MB).
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,12 +32,15 @@ $SpecFile  = Join-Path $BuildDir "wispy.spec"
 $BundleDir = Join-Path $DistDir "wispy"
 $PythonVer = "3.12"
 
+$BuildVariant = if ($Gpu) { "GPU (CUDA)" } else { "CPU-only" }
+
 Write-Host ""
 Write-Host "=== wispy portable build (uv) ===" -ForegroundColor Cyan
 Write-Host "Repo root : $RepoRoot"
 Write-Host "Venv      : $VenvDir"
 Write-Host "Python    : $PythonVer (managed by uv)"
 Write-Host "Output    : $BundleDir"
+Write-Host "Variant   : $BuildVariant"
 Write-Host ""
 
 # --- 2. Preflight: uv must be installed -------------------------------------
@@ -67,12 +72,17 @@ if (-not (Test-Path $VenvPython)) {
 Write-Host "[build] Installing wispy (editable) and runtime dependencies ..." -ForegroundColor Yellow
 & uv pip install --python $VenvPython -e $RepoRoot
 
-Write-Host "[build] Installing CUDA runtime libs and PyInstaller ..." -ForegroundColor Yellow
-& uv pip install --python $VenvPython `
-    nvidia-cublas-cu12 `
-    nvidia-cudnn-cu12 `
-    nvidia-cuda-runtime-cu12 `
-    pyinstaller
+if ($Gpu) {
+    Write-Host "[build] Installing CUDA runtime libs and PyInstaller ..." -ForegroundColor Yellow
+    & uv pip install --python $VenvPython `
+        nvidia-cublas-cu12 `
+        nvidia-cudnn-cu12 `
+        nvidia-cuda-runtime-cu12 `
+        pyinstaller
+} else {
+    Write-Host "[build] Installing PyInstaller (CPU-only build, skipping CUDA libs) ..." -ForegroundColor Yellow
+    & uv pip install --python $VenvPython pyinstaller
+}
 
 # --- 6. Clean previous build ------------------------------------------------
 if (Test-Path $BundleDir) {
@@ -81,12 +91,14 @@ if (Test-Path $BundleDir) {
 }
 
 # --- 7. Run PyInstaller -----------------------------------------------------
-Write-Host "[build] Running PyInstaller ..." -ForegroundColor Yellow
+Write-Host "[build] Running PyInstaller ($BuildVariant) ..." -ForegroundColor Yellow
+$env:WISPY_GPU_BUILD = if ($Gpu) { "1" } else { "0" }
 Push-Location $RepoRoot
 try {
     & $VenvPython -m PyInstaller $SpecFile --clean --noconfirm
 } finally {
     Pop-Location
+    Remove-Item Env:WISPY_GPU_BUILD -ErrorAction SilentlyContinue
 }
 
 if (-not (Test-Path $BundleDir)) {
@@ -125,7 +137,8 @@ if ($CreateZip) {
         throw "Could not read version from pyproject.toml"
     }
 
-    $ZipName = "wispy-v$PkgVersion.zip"
+    $ZipSuffix = if ($Gpu) { "-gpu" } else { "" }
+    $ZipName = "wispy-v$PkgVersion$ZipSuffix.zip"
     $ZipPath = Join-Path $DistDir $ZipName
 
     if (Test-Path $ZipPath) { Remove-Item -Force $ZipPath }
@@ -139,10 +152,15 @@ if ($CreateZip) {
     Write-Host ""
     Write-Host "Next step (GitHub Release):" -ForegroundColor Cyan
     Write-Host "  gh release create v$PkgVersion $ZipPath --title `"wispy v$PkgVersion`" --notes `"<release notes>`""
+    if (-not $Gpu) {
+        Write-Host ""
+        Write-Host "  (Optional GPU build: .\build\build.ps1 -CreateZip -Gpu)" -ForegroundColor DarkGray
+    }
     Write-Host ""
 } else {
     Write-Host "Next steps:" -ForegroundColor Cyan
     Write-Host "  1. Smoke test : $BundleDir\wispy.exe"
     Write-Host "  2. Release    : .\build\build.ps1 -CreateZip  (then gh release create ...)"
+    Write-Host "     GPU build  : .\build\build.ps1 -CreateZip -Gpu"
     Write-Host ""
 }

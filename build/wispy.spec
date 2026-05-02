@@ -12,6 +12,7 @@ Output:
     dist/wispy/_internal/     Python runtime, libs, and CUDA DLLs
 """
 
+import os
 import site
 from pathlib import Path
 
@@ -19,6 +20,10 @@ from PyInstaller.utils.hooks import collect_all
 
 # build/wispy.spec -> repo root is one level up from SPECPATH.
 ROOT = Path(SPECPATH).resolve().parent
+
+# Set WISPY_GPU_BUILD=1 (via build.ps1 -Gpu) to include NVIDIA CUDA DLLs.
+# Without it the bundle is CPU-only and substantially smaller (~350-600 MB vs ~2 GB).
+GPU_BUILD = os.environ.get("WISPY_GPU_BUILD", "0") == "1"
 
 
 def _find_nvidia_dlls():
@@ -56,7 +61,7 @@ def _find_nvidia_dlls():
 ct2_datas, ct2_binaries, ct2_hidden = collect_all("ctranslate2")
 fw_datas, fw_binaries, fw_hidden = collect_all("faster_whisper")
 
-nvidia_binaries = _find_nvidia_dlls()
+nvidia_binaries = _find_nvidia_dlls() if GPU_BUILD else []
 
 a = Analysis(
     [str(ROOT / "src" / "wispy" / "__main__.py")],
