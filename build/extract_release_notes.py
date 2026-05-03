@@ -70,7 +70,10 @@ def main() -> int:
         return 1
 
     Path(args.output).write_text(section + "\n", encoding="utf-8")
-    print(f"Extracted release notes for v{version} → {args.output}")
+    # Use ASCII arrow rather than U+2192 — Python's stdout on Windows defaults
+    # to cp1252, which cannot encode the Unicode arrow. Crashing the script
+    # over a print() pretty-arrow was a real CI bug in v0.4.4 first attempt.
+    print(f"Extracted release notes for v{version} -> {args.output}")
     return 0
 
 
