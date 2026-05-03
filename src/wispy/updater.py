@@ -108,12 +108,12 @@ def _backup_dir(app_dir: Path) -> Path:
     return app_dir / "update-backup"
 
 
-def _cuda_dir(app_dir: Path) -> Path:
+def _default_cuda_dir(app_dir: Path) -> Path:
     return app_dir / "cuda"
 
 
-def _local_cuda_version(app_dir: Path) -> Optional[Version]:
-    marker = _cuda_dir(app_dir) / "_version.txt"
+def _local_cuda_version(cuda_dir: Path) -> Optional[Version]:
+    marker = cuda_dir / "_version.txt"
     if not marker.is_file():
         return None
     try:
@@ -123,11 +123,10 @@ def _local_cuda_version(app_dir: Path) -> Optional[Version]:
     return _parse_cuda_version(raw)
 
 
-def _is_cuda_installed(app_dir: Path) -> bool:
-    cuda = _cuda_dir(app_dir)
-    if not cuda.is_dir():
+def _is_cuda_installed(cuda_dir: Path) -> bool:
+    if not cuda_dir.is_dir():
         return False
-    return any(p.suffix.lower() == ".dll" for p in cuda.iterdir())
+    return any(p.suffix.lower() == ".dll" for p in cuda_dir.iterdir())
 
 
 # ---------------------------------------------------------------------------
@@ -195,12 +194,23 @@ class UpdateStatus:
         return self.app_release is not None or self.cuda_release is not None
 
 
-def check_for_updates(current_app_version: str, app_dir: Path) -> UpdateStatus:
+def check_for_updates(
+    current_app_version: str,
+    app_dir: Path,
+    cuda_dir: Optional[Path] = None,
+) -> UpdateStatus:
     """Query both release streams and return what (if anything) is newer.
 
     The cuda stream is only considered when a local cuda/ bundle exists.
     A user without GPU has no reason to download cuda updates.
+
+    `cuda_dir` defaults to <app_dir>/cuda when not given (legacy behaviour).
+    Pass an explicit path when the user has configured `cuda_path` to a
+    non-default location.
     """
+    if cuda_dir is None:
+        cuda_dir = _default_cuda_dir(app_dir)
+
     releases = _fetch_releases()
     if releases is None:
         return UpdateStatus()
@@ -216,11 +226,11 @@ def check_for_updates(current_app_version: str, app_dir: Path) -> UpdateStatus:
             status.app_release = app_rel
 
     # CUDA stream — only if user has cuda installed
-    if _is_cuda_installed(app_dir):
+    if _is_cuda_installed(cuda_dir):
         cuda_rel = _find_latest_cuda_release(releases)
         if cuda_rel is not None:
             remote = _parse_cuda_version(cuda_rel["tag_name"])
-            local = _local_cuda_version(app_dir)
+            local = _local_cuda_version(cuda_dir)
             if remote is not None and (local is None or remote > local):
                 status.cuda_release = cuda_rel
 
@@ -453,17 +463,29 @@ def handle_post_update_start(app_dir: Path, current_version: str) -> None:
 # Swap trigger: unpack staged bundles, write PS helper, exit so swap can run
 # ---------------------------------------------------------------------------
 
-def trigger_swap(app_zip: Optional[Path], cuda_zip: Optional[Path], app_dir: Path) -> None:
+def trigger_swap(
+    app_zip: Optional[Path],
+    cuda_zip: Optional[Path],
+    app_dir: Path,
+    cuda_dir: Optional[Path] = None,
+) -> None:
     """Unpack staged bundle(s), write swap PS script, launch it, then exit.
 
     At least one of `app_zip` / `cuda_zip` must be provided. Source
     installs print a hint and return without exiting.
+
+    `cuda_dir` defaults to <app_dir>/cuda when not given (legacy behaviour).
+    Pass an explicit path when the user has configured `cuda_path` to a
+    non-default location.
     """
     if not getattr(sys, "frozen", False):
         print("[update] Swap is only supported in the portable build (wispy.exe).")
         return
     if app_zip is None and cuda_zip is None:
         return
+
+    if cuda_dir is None:
+        cuda_dir = _default_cuda_dir(app_dir)
 
     staging = _staging_dir(app_dir)
     print("[update] Applying staged update ...")
@@ -496,6 +518,7 @@ def trigger_swap(app_zip: Optional[Path], cuda_zip: Optional[Path], app_dir: Pat
     ps_path.write_text(
         _build_swap_script(
             app_dir=app_dir,
+            cuda_dir=cuda_dir,
             new_app_bundle=new_app_bundle,
             new_cuda_bundle=new_cuda_bundle,
             backup=_backup_dir(app_dir),
@@ -513,6 +536,7 @@ def trigger_swap(app_zip: Optional[Path], cuda_zip: Optional[Path], app_dir: Pat
 
 def _build_swap_script(
     app_dir: Path,
+    cuda_dir: Path,
     new_app_bundle: Optional[Path],
     new_cuda_bundle: Optional[Path],
     backup: Path,
@@ -522,6 +546,7 @@ def _build_swap_script(
     where_filter = " -and ".join(f"$_.Name -ne '{name}'" for name in wl)
 
     app_str = str(app_dir)
+    cuda_target_str = str(cuda_dir)
     backup_str = str(backup)
     exe_str = str(app_dir / "wispy.exe")
 
@@ -534,6 +559,7 @@ def _build_swap_script(
 # wispy update swap script (auto-generated -- do not edit)
 $ErrorActionPreference = 'Continue'
 $AppDir       = '{app_str}'
+$CudaTarget   = '{cuda_target_str}'
 $BackupDir    = '{backup_str}'
 $WispyExe     = '{exe_str}'
 $DoAppSwap    = ${str(do_app).lower()}
@@ -582,10 +608,11 @@ if ($DoAppSwap) {{
 }}
 
 if ($DoCudaSwap) {{
-    Write-Host '[update] Replacing cuda/ runtime ...'
-    $TargetCuda = Join-Path $AppDir 'cuda'
-    if (Test-Path $TargetCuda) {{ Remove-Item -Recurse -Force $TargetCuda }}
-    Copy-Item $NewCudaDir $TargetCuda -Recurse -Force
+    Write-Host '[update] Replacing cuda runtime at' $CudaTarget '...'
+    if (Test-Path $CudaTarget) {{ Remove-Item -Recurse -Force $CudaTarget }}
+    $CudaParent = Split-Path -Parent $CudaTarget
+    if (-not (Test-Path $CudaParent)) {{ New-Item -ItemType Directory -Force -Path $CudaParent | Out-Null }}
+    Copy-Item $NewCudaDir $CudaTarget -Recurse -Force
 }}
 
 Write-Host '[update] Starting new wispy ...'

@@ -50,3 +50,25 @@ restore_clipboard: true   # Restore previous clipboard after pasting
 #   update_check: true,  auto_update: true    check + apply silently + restart
 update_check: true
 auto_update: false
+
+# --- CUDA storage -------------------------------------------------------
+# Where the lazy-loaded CUDA runtime DLLs live once installed.
+#   null = <wispy-folder>/cuda/
+#   absolute or relative path = use that location instead. Useful when
+#   several wispy installs share one CUDA bundle, or to keep the bundle
+#   off the wispy folder for backup convenience.
+cuda_path: null
+
+# --- Local test sources -------------------------------------------------
+# When set, wispy uses these local artefacts instead of downloading from
+# Hugging Face / GitHub Releases. Aimed at offline testing and at avoiding
+# repeated multi-GB downloads during development. null = normal network.
+#
+# model_local_source: directory that contains a complete Whisper model
+#   (config.json, model.bin, preprocessor_config.json, tokenizer.json,
+#   vocabulary.json). Will be copied into the resolved model_path.
+# cuda_local_source: either a wispy-cuda-vX.Y.Z.zip file or an already
+#   extracted directory containing cublas64_12.dll, cudnn_*.dll, ... and
+#   a _version.txt marker. Will be installed into the resolved cuda_path.
+model_local_source: null
+cuda_local_source: null

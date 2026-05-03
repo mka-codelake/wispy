@@ -58,17 +58,18 @@ from . import __version__  # noqa: E402
 from .audio import Recorder  # noqa: E402
 from .config import Config, default_config_path, load_config  # noqa: E402
 from .cuda_loader import (  # noqa: E402
-    add_cuda_to_dll_search_path,
+    add_cuda_to_dll_search_path_at,
     fetch_latest_cuda_release,
     install_cuda_bundle,
-    is_cuda_installed,
+    install_cuda_from_local,
+    is_cuda_installed_at,
 )
 from .feedback import beep_start, beep_stop  # noqa: E402
 from .gpu_detect import detect_nvidia_gpu  # noqa: E402
 from .hotkey import HotkeyListener  # noqa: E402
 from .model_fetch import ensure_model_available  # noqa: E402
 from .output import type_text  # noqa: E402
-from .paths import get_app_dir, load_vocabulary, resolve_model_path  # noqa: E402
+from .paths import get_app_dir, load_vocabulary, resolve_cuda_path, resolve_model_path  # noqa: E402
 from .updater import (  # noqa: E402
     check_for_updates,
     download_staged_update,
@@ -82,24 +83,23 @@ from .updater import (  # noqa: E402
 MIN_DURATION_SEC = 0.3
 
 
-def _ensure_cuda_or_fallback(cfg: Config, app_dir: Path) -> bool:
+def _ensure_cuda_or_fallback(cfg: Config, app_dir: Path, cuda_dir: Path) -> bool:
     """Decide whether the run should use CUDA, installing the bundle if needed.
 
-    Returns True if `<app_dir>/cuda/` is populated and ready to be added to
-    the DLL search path. Returns False in every other case (user declined,
+    Returns True if `cuda_dir` is populated and ready to be added to the
+    DLL search path. Returns False in every other case (user declined,
     no GPU, install failed, device forced to CPU).
 
     Behaviour:
 
     - cfg.device == "cpu"         → never CUDA, return False without prompts.
-    - cuda/ already populated     → CUDA is ready, return True.
+    - cuda_dir already populated  → CUDA is ready, return True.
+    - cuda_local_source set       → install silently from the local artefact
+                                     (test/offline path, no prompt).
     - GPU detection result:
-        * "yes"      → tell the user, ask, install on accept.
+        * "yes"      → tell the user, ask, download from GitHub on accept.
         * "no"       → no prompt; return False.
-        * "unknown"  → we cannot tell. Prompt with a clear notice so the
-                       user can confirm if they have a card. Otherwise wispy
-                       on a NVIDIA system would silently default to CPU and
-                       then crash on the first transcribe call.
+        * "unknown"  → ambiguous. Prompt with a clear notice.
 
     The function does NOT exit/restart the process. After a successful
     install, control returns to main() so the rest of startup can proceed
@@ -107,8 +107,18 @@ def _ensure_cuda_or_fallback(cfg: Config, app_dir: Path) -> bool:
     """
     if cfg.device == "cpu":
         return False
-    if is_cuda_installed(app_dir):
+    if is_cuda_installed_at(cuda_dir):
         return True
+
+    # Test-bootstrap path: install silently from a local file/directory.
+    if cfg.cuda_local_source:
+        local = Path(cfg.cuda_local_source)
+        if not local.is_absolute():
+            local = (app_dir / local).resolve()
+        if install_cuda_from_local(local, cuda_dir):
+            print("[gpu] CUDA runtime ready (from local source).")
+            return True
+        print("[gpu] cuda_local_source failed — falling through to network/CPU.")
 
     gpu_status = detect_nvidia_gpu()
     if gpu_status == "no":
@@ -124,8 +134,6 @@ def _ensure_cuda_or_fallback(cfg: Config, app_dir: Path) -> bool:
     try:
         answer = input("[gpu] Download CUDA runtime now? [y/N]: ").strip().lower()
     except EOFError:
-        # No interactive stdin (e.g. piped, scripted) — default to "no" so we
-        # do not freeze the start.
         answer = ""
 
     if answer not in ("y", "yes", "j", "ja"):
@@ -137,7 +145,7 @@ def _ensure_cuda_or_fallback(cfg: Config, app_dir: Path) -> bool:
         print("[gpu] No CUDA release found on GitHub — running on CPU.")
         return False
 
-    if not install_cuda_bundle(release, app_dir):
+    if not install_cuda_bundle(release, app_dir, cuda_dir=cuda_dir):
         print("[gpu] CUDA install failed — running on CPU.")
         return False
 
@@ -175,12 +183,13 @@ def main():
     config_path = args.config or default_config_path()
     app_dir = get_app_dir()
     cfg: Config = load_config(config_path)
+    cuda_dir = resolve_cuda_path(cfg.cuda_path)
 
     # --- Update flow: post-swap cleanup, then dual-stream check + apply -----
     handle_post_update_start(app_dir, __version__)
 
     if cfg.update_check:
-        status = check_for_updates(__version__, app_dir)
+        status = check_for_updates(__version__, app_dir, cuda_dir=cuda_dir)
         report_update_status(__version__, status)
         if status.has_update():
             # Three tiers collapse here:
@@ -195,6 +204,7 @@ def main():
                         app_zip=staged.get("app"),
                         cuda_zip=staged.get("cuda"),
                         app_dir=app_dir,
+                        cuda_dir=cuda_dir,
                     )
                     # trigger_swap exits in frozen build. Source runs return
                     # here and just continue with the older binaries.
@@ -216,11 +226,11 @@ def main():
     print(f"[wispy] vocabulary  = {len(vocabulary)} term(s) loaded")
 
     # --- Lazy CUDA install on first start with a NVIDIA GPU ----------------
-    cuda_available = _ensure_cuda_or_fallback(cfg, app_dir)
+    cuda_available = _ensure_cuda_or_fallback(cfg, app_dir, cuda_dir)
     if cuda_available:
-        # Register cuda/ on the DLL search path so CTranslate2 finds the
+        # Register cuda_dir on the DLL search path so CTranslate2 finds the
         # NVIDIA libraries on first WhisperModel(...) call.
-        add_cuda_to_dll_search_path(app_dir)
+        add_cuda_to_dll_search_path_at(cuda_dir)
 
     # Pick effective device. If cuda/ is missing we MUST force CPU here,
     # otherwise CTranslate2 happily initialises and then crashes on the
@@ -230,12 +240,17 @@ def main():
     print(f"[wispy] hotkey={cfg.hotkey}, mode={cfg.record_mode}, "
           f"model={cfg.model_name}, device={effective_device}, lang={cfg.language}")
 
-    # --- Ensure model is present (first-run download if needed) ----------
+    # --- Ensure model is present (first-run download or local copy) ----------
     # Disable hf_hub's tqdm bars so they cannot trail past wispy's "Ready!"
     # line. wispy prints its own concise status messages instead.
     os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    model_local_source: Path | None = None
+    if cfg.model_local_source:
+        model_local_source = Path(cfg.model_local_source)
+        if not model_local_source.is_absolute():
+            model_local_source = (app_dir / model_local_source).resolve()
     try:
-        ensure_model_available(cfg.model_hub_id, model_path)
+        ensure_model_available(cfg.model_hub_id, model_path, local_source=model_local_source)
     except RuntimeError as e:
         print(f"[wispy] {e}")
         sys.exit(2)

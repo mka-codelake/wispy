@@ -5,6 +5,38 @@ All notable changes to wispy will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] — 2026-05-03
+
+Test-Komfort: lokale Bezugsquellen für CUDA-Bundle und Whisper-Modell.
+
+### Added
+- **`cuda_path`** in `config.yaml` — Storage-Choice für die CUDA-Runtime,
+  analog zu `model_path`. Default `null` zeigt auf `<wispy>/cuda/`.
+  Mehrere wispy-Instanzen können sich denselben CUDA-Bundle-Pfad teilen,
+  oder du legst CUDA bewusst außerhalb des wispy-Ordners ab. Der Updater,
+  der Lazy-Installer und das Swap-Skript respektieren den konfigurierten
+  Pfad gleichermaßen.
+- **`model_local_source`** — Pfad zu einem vollständigen lokalen Modell-
+  Verzeichnis. Wenn gesetzt, kopiert wispy beim ersten Start die Dateien
+  von dort statt sie von Hugging Face zu ziehen. Spart bei Test-Iterationen
+  den 1.6-GB-Download.
+- **`cuda_local_source`** — Pfad zu einer `wispy-cuda-*.zip`-Datei oder
+  einem bereits entpackten CUDA-Verzeichnis. Wenn gesetzt, installiert
+  wispy ohne Netzwerk-Zugriff aus dieser Quelle (kein Prompt). Nützlich
+  zum Testen von Pre-Release-CUDA-Bundles oder offline.
+
+### Changed
+- `cuda_loader` API erweitert: `*_at`-Varianten der Helper akzeptieren
+  einen expliziten `cuda_dir`-Pfad (`is_cuda_installed_at`,
+  `find_local_cuda_version_at`, `add_cuda_to_dll_search_path_at`,
+  `install_cuda_bundle(..., cuda_dir=...)`). Die alten Funktionen mit
+  `app_dir`-Parameter bleiben als Wrapper erhalten.
+- `updater.check_for_updates` und `updater.trigger_swap` akzeptieren
+  einen optionalen `cuda_dir`-Parameter, damit der konfigurierte Pfad
+  über den ganzen Update-Pfad hinweg konsistent verwendet wird. Das
+  PowerShell-Swap-Skript schreibt das CUDA-Update an den expliziten
+  Zielpfad, nicht hartcodiert nach `<app_dir>/cuda`.
+
 ## [0.4.1] — 2026-05-03
 
 Hotfix für die in v0.4.0 gefundenen UX- und Stabilitätsprobleme nach dem
@@ -121,6 +153,7 @@ Wer von **v0.3.0** kommt:
   The optional `GITHUB_TOKEN` environment variable is still honored for
   higher rate limits but never required.
 
+[0.4.2]: https://github.com/mka-codelake/wispy/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/mka-codelake/wispy/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/mka-codelake/wispy/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/mka-codelake/wispy/compare/v0.2.0...v0.3.0

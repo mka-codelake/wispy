@@ -91,6 +91,36 @@ class TestEnsureModelAvailable:
         with pytest.raises(RuntimeError, match="Download finished but the model is still incomplete"):
             ensure_model_available("hub/repo", target)
 
+    def test_local_source_complete_directory_skips_network(
+        self, mocker, tmp_path: Path
+    ):
+        target = tmp_path / "target"
+        source = tmp_path / "source"
+        _populate_complete_model(source)
+
+        snap = mocker.patch("huggingface_hub.snapshot_download")
+        ensure_model_available("hub/repo", target, local_source=source)
+
+        snap.assert_not_called()
+        assert all((target / name).is_file() for name in REQUIRED_MODEL_FILES)
+
+    def test_local_source_missing_directory_raises(self, tmp_path: Path):
+        target = tmp_path / "target"
+        absent = tmp_path / "does-not-exist"
+
+        with pytest.raises(RuntimeError, match="model_local_source does not exist"):
+            ensure_model_available("hub/repo", target, local_source=absent)
+
+    def test_local_source_incomplete_directory_raises(self, tmp_path: Path):
+        target = tmp_path / "target"
+        source = tmp_path / "source"
+        source.mkdir()
+        # Only one of the required files present -> incomplete
+        (source / REQUIRED_MODEL_FILES[0]).write_bytes(b"only one")
+
+        with pytest.raises(RuntimeError, match="model_local_source is incomplete"):
+            ensure_model_available("hub/repo", target, local_source=source)
+
     def test_propagates_huggingface_hub_import_error_as_runtime_error(
         self, mocker, tmp_path: Path
     ):

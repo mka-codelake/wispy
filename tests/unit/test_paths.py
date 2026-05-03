@@ -13,6 +13,7 @@ from wispy.paths import (
     get_vocabulary_path,
     load_vocabulary,
     missing_model_files,
+    resolve_cuda_path,
     resolve_model_path,
 )
 
@@ -49,6 +50,23 @@ class TestResolveModelPath:
         mocker.patch("wispy.paths.get_app_dir", return_value=tmp_path)
         result = resolve_model_path("ignored", model_path="custom/place")
         assert result == (tmp_path / "custom" / "place").resolve()
+
+
+class TestResolveCudaPath:
+    def test_falls_back_to_app_dir_cuda_subdir(self, mocker, tmp_path: Path):
+        mocker.patch("wispy.paths.get_app_dir", return_value=tmp_path)
+        result = resolve_cuda_path()
+        assert result == (tmp_path / "cuda").resolve()
+
+    def test_absolute_explicit_path_wins(self, tmp_path: Path):
+        explicit = tmp_path / "shared-cuda"
+        result = resolve_cuda_path(str(explicit))
+        assert result == explicit.resolve()
+
+    def test_relative_explicit_path_anchors_to_app_dir(self, mocker, tmp_path: Path):
+        mocker.patch("wispy.paths.get_app_dir", return_value=tmp_path)
+        result = resolve_cuda_path("alt/cuda")
+        assert result == (tmp_path / "alt" / "cuda").resolve()
 
 
 class TestModelCompleteness:

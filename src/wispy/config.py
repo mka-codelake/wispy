@@ -26,6 +26,15 @@ class Config:
     restore_clipboard: bool = True
     update_check: bool = True
     auto_update: bool = False
+    # Storage choice: where to keep the CUDA runtime DLLs once installed.
+    # null = <app_dir>/cuda/. Useful when several wispy installs share one
+    # CUDA bundle on disk.
+    cuda_path: Optional[str] = None
+    # Test bootstrap: when set, wispy uses these local artefacts instead of
+    # downloading from HuggingFace / GitHub Releases. Speeds up iteration
+    # and enables offline testing. null = normal network download.
+    model_local_source: Optional[str] = None     # path to a complete model dir
+    cuda_local_source: Optional[str] = None      # path to a wispy-cuda-*.zip OR an extracted dir
 
 
 def default_config_path() -> Path:

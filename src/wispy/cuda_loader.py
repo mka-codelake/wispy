@@ -14,7 +14,8 @@ Asset layout inside the ZIP:
       cudart64_12.dll
       _version.txt
 
-After extraction the local layout becomes `<app_dir>/cuda/...`.
+After extraction the local layout becomes `<cuda_dir>/...` where
+`cuda_dir` is configurable (defaults to `<app_dir>/cuda/`).
 """
 
 from __future__ import annotations
@@ -54,8 +55,6 @@ def _parse_cuda_version(s: str) -> Optional[Version]:
     s = s.strip()
     if s.startswith(_TAG_PREFIX):
         s = s[len(_TAG_PREFIX):]
-    # Drop any -bN build counter — versioning compares the underlying CUDA
-    # toolkit version, the build counter is only there to allow re-rolls.
     if "-b" in s:
         s = s.split("-b", 1)[0]
     try:
@@ -64,13 +63,13 @@ def _parse_cuda_version(s: str) -> Optional[Version]:
         return None
 
 
-def _cuda_dir(app_dir: Path) -> Path:
-    return app_dir / "cuda"
+# ---------------------------------------------------------------------------
+# Local cuda state — cuda_dir is the configurable directory
+# ---------------------------------------------------------------------------
 
-
-def find_local_cuda_version(app_dir: Path) -> Optional[Version]:
-    """Read <app_dir>/cuda/_version.txt and parse it. Returns None if absent or unreadable."""
-    marker = _cuda_dir(app_dir) / "_version.txt"
+def find_local_cuda_version_at(cuda_dir: Path) -> Optional[Version]:
+    """Read <cuda_dir>/_version.txt and parse it. Returns None if absent or unreadable."""
+    marker = cuda_dir / "_version.txt"
     if not marker.is_file():
         return None
     try:
@@ -80,12 +79,22 @@ def find_local_cuda_version(app_dir: Path) -> Optional[Version]:
     return _parse_cuda_version(raw)
 
 
-def is_cuda_installed(app_dir: Path) -> bool:
-    """Return True if the cuda/ directory exists and has at least one DLL."""
-    cuda = _cuda_dir(app_dir)
-    if not cuda.is_dir():
+def is_cuda_installed_at(cuda_dir: Path) -> bool:
+    """Return True if cuda_dir exists and has at least one DLL."""
+    if not cuda_dir.is_dir():
         return False
-    return any(p.suffix.lower() == ".dll" for p in cuda.iterdir())
+    return any(p.suffix.lower() == ".dll" for p in cuda_dir.iterdir())
+
+
+# Legacy app_dir-based helpers (used by older tests / external callers).
+# New code should prefer the *_at variants with an explicit cuda_dir.
+
+def find_local_cuda_version(app_dir: Path) -> Optional[Version]:
+    return find_local_cuda_version_at(app_dir / "cuda")
+
+
+def is_cuda_installed(app_dir: Path) -> bool:
+    return is_cuda_installed_at(app_dir / "cuda")
 
 
 # ---------------------------------------------------------------------------
@@ -128,29 +137,8 @@ def fetch_latest_cuda_release() -> Optional[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Download + extract
+# ZIP validation + extraction (shared between download and bootstrap paths)
 # ---------------------------------------------------------------------------
-
-def _download_to_tempfile(url: str, target_dir: Path) -> Optional[Path]:
-    """Download `url` to a fresh tempfile inside target_dir. Returns the path or None."""
-    target_dir.mkdir(parents=True, exist_ok=True)
-    tmp = tempfile.NamedTemporaryFile(
-        dir=str(target_dir), delete=False, suffix=".zip.partial"
-    )
-    tmp_path = Path(tmp.name)
-    tmp.close()
-
-    ok = download_with_progress(
-        url=url,
-        target=tmp_path,
-        headers=_request_headers(),
-        label="[cuda]",
-    )
-    if not ok:
-        tmp_path.unlink(missing_ok=True)
-        return None
-    return tmp_path
-
 
 def _validate_zip(zip_path: Path) -> bool:
     """Return True iff the file is a readable ZIP whose top-level dir is `cuda/`."""
@@ -163,33 +151,115 @@ def _validate_zip(zip_path: Path) -> bool:
         return False
     if not names:
         return False
-    # Every member must live under cuda/ — otherwise we would dump files all
-    # over app_dir on extract.
     return all(name.startswith("cuda/") for name in names)
 
 
-def _extract_cuda_zip(zip_path: Path, app_dir: Path) -> bool:
-    """Extract `zip_path` into app_dir, replacing any existing cuda/ contents."""
-    target = _cuda_dir(app_dir)
-    if target.exists():
-        shutil.rmtree(target, ignore_errors=True)
-    try:
-        with zipfile.ZipFile(zip_path) as zf:
-            zf.extractall(app_dir)
-    except (zipfile.BadZipFile, OSError) as e:
-        print(f"[cuda] Extract failed: {e}")
+def _extract_cuda_zip_to(zip_path: Path, cuda_dir: Path) -> bool:
+    """Extract `zip_path` such that the resulting tree is `cuda_dir/...`.
+
+    The ZIP itself contains a top-level `cuda/` directory (see release-cuda.yml).
+    After extraction the layout becomes `cuda_dir/cublas64_12.dll`, etc.
+    Existing contents of cuda_dir are removed first.
+    """
+    if cuda_dir.exists():
+        shutil.rmtree(cuda_dir, ignore_errors=True)
+    cuda_dir.parent.mkdir(parents=True, exist_ok=True)
+
+    # Extract into a temp staging dir, then rename `cuda/` to cuda_dir.
+    with tempfile.TemporaryDirectory(dir=str(cuda_dir.parent)) as staging:
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                zf.extractall(staging)
+        except (zipfile.BadZipFile, OSError) as e:
+            print(f"[cuda] Extract failed: {e}")
+            return False
+        extracted = Path(staging) / "cuda"
+        if not extracted.is_dir():
+            print(f"[cuda] Extracted ZIP did not contain a top-level cuda/ dir.")
+            return False
+        shutil.move(str(extracted), str(cuda_dir))
+    return cuda_dir.is_dir()
+
+
+def _copy_cuda_dir_to(source_dir: Path, cuda_dir: Path) -> bool:
+    """Copy a pre-extracted cuda directory tree into cuda_dir.
+
+    `source_dir` should look like the extracted contents of a wispy-cuda-*.zip,
+    i.e. directly contain cublas64_12.dll, _version.txt, etc.
+    """
+    if not source_dir.is_dir():
         return False
-    return target.is_dir()
+    has_dll = any(p.suffix.lower() == ".dll" for p in source_dir.iterdir())
+    if not has_dll:
+        print(f"[cuda] Source directory has no DLLs: {source_dir}")
+        return False
+    if cuda_dir.exists():
+        shutil.rmtree(cuda_dir, ignore_errors=True)
+    cuda_dir.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(source_dir, cuda_dir)
+    return cuda_dir.is_dir()
 
 
-def install_cuda_bundle(release: dict, app_dir: Path) -> bool:
+# ---------------------------------------------------------------------------
+# Bootstrap: install from a local path (test / offline mode)
+# ---------------------------------------------------------------------------
+
+def install_cuda_from_local(local_source: Path, cuda_dir: Path) -> bool:
+    """Install the CUDA bundle from a local file or directory, no network.
+
+    `local_source` may be either:
+      - a wispy-cuda-*.zip file (validated + extracted), or
+      - a directory whose contents are copied verbatim into cuda_dir.
+
+    Returns True on success.
+    """
+    if not local_source.exists():
+        print(f"[cuda] Local source does not exist: {local_source}")
+        return False
+
+    if local_source.is_file():
+        print(f"[cuda] Installing CUDA from local ZIP {local_source} ...")
+        if not _validate_zip(local_source):
+            print(f"[cuda] Local ZIP failed validation: {local_source}")
+            return False
+        if not _extract_cuda_zip_to(local_source, cuda_dir):
+            return False
+        print(f"[cuda] Installed CUDA bundle into {cuda_dir}.")
+        return True
+
+    if local_source.is_dir():
+        print(f"[cuda] Installing CUDA from local directory {local_source} ...")
+        if not _copy_cuda_dir_to(local_source, cuda_dir):
+            return False
+        print(f"[cuda] Installed CUDA bundle into {cuda_dir}.")
+        return True
+
+    print(f"[cuda] Local source is neither a file nor a directory: {local_source}")
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Network: download GitHub release asset to cuda_dir
+# ---------------------------------------------------------------------------
+
+def install_cuda_bundle(release: dict, app_dir_or_cuda_dir: Path, *, cuda_dir: Optional[Path] = None) -> bool:
     """Download and extract the cuda asset from a GitHub release object.
+
+    Two call shapes are supported for backwards compatibility:
+      - install_cuda_bundle(release, app_dir)        # legacy; uses app_dir/cuda
+      - install_cuda_bundle(release, app_dir, cuda_dir=...)  # explicit target
 
     Returns True on success. Cleans up partial downloads on failure.
     """
+    target = cuda_dir if cuda_dir is not None else (app_dir_or_cuda_dir / "cuda")
+
     assets = release.get("assets", [])
     asset = next(
-        (a for a in assets if a.get("name", "").startswith("wispy-cuda-v") and a["name"].endswith(".zip")),
+        (
+            a
+            for a in assets
+            if a.get("name", "").startswith("wispy-cuda-v") and a["name"].endswith(".zip")
+        ),
         None,
     )
     if asset is None:
@@ -205,27 +275,39 @@ def install_cuda_bundle(release: dict, app_dir: Path) -> bool:
     size_str = f" ({size_bytes / 1024 / 1024:.0f} MB)" if size_bytes else ""
     print(f"[cuda] Downloading {asset['name']}{size_str} ...")
 
-    download_dir = app_dir / "cuda-staging"
-    tmp_path = _download_to_tempfile(url, download_dir)
-    if tmp_path is None:
+    download_dir = target.parent / "cuda-staging"
+    download_dir.mkdir(parents=True, exist_ok=True)
+    tmp = tempfile.NamedTemporaryFile(
+        dir=str(download_dir), delete=False, suffix=".zip.partial"
+    )
+    tmp_path = Path(tmp.name)
+    tmp.close()
+
+    ok = download_with_progress(
+        url=url,
+        target=tmp_path,
+        headers=_request_headers(),
+        label="[cuda]",
+    )
+    if not ok:
+        tmp_path.unlink(missing_ok=True)
         return False
 
     try:
         if not _validate_zip(tmp_path):
-            print(f"[cuda] Downloaded ZIP failed validation.")
+            print("[cuda] Downloaded ZIP failed validation.")
             return False
-        if not _extract_cuda_zip(tmp_path, app_dir):
+        if not _extract_cuda_zip_to(tmp_path, target):
             return False
     finally:
         tmp_path.unlink(missing_ok=True)
-        # Clean up the staging dir if it ended up empty
         try:
             if download_dir.is_dir() and not any(download_dir.iterdir()):
                 download_dir.rmdir()
         except OSError:
             pass
 
-    print(f"[cuda] Installed CUDA bundle into {_cuda_dir(app_dir)}.")
+    print(f"[cuda] Installed CUDA bundle into {target}.")
     return True
 
 
@@ -233,24 +315,25 @@ def install_cuda_bundle(release: dict, app_dir: Path) -> bool:
 # Runtime DLL search path
 # ---------------------------------------------------------------------------
 
-def add_cuda_to_dll_search_path(app_dir: Path) -> bool:
-    """Make the cuda/ directory visible to CTranslate2's DLL loader.
+def add_cuda_to_dll_search_path_at(cuda_dir: Path) -> bool:
+    """Make `cuda_dir` visible to CTranslate2's DLL loader.
 
     Uses os.add_dll_directory (Python 3.8+, Windows). On non-Windows or when
     the call is unavailable this is a no-op. Returns True if the directory
     was registered.
     """
-    cuda = _cuda_dir(app_dir)
-    if not cuda.is_dir():
+    if not cuda_dir.is_dir():
         return False
     add_dll_directory = getattr(os, "add_dll_directory", None)
     if add_dll_directory is None:
-        # Non-Windows: CTranslate2 will look at LD_LIBRARY_PATH instead, but
-        # wispy itself is Windows-only at runtime, so this branch is mostly
-        # for development / unit tests on Linux.
         return False
     try:
-        add_dll_directory(str(cuda))
+        add_dll_directory(str(cuda_dir))
         return True
     except OSError:
         return False
+
+
+def add_cuda_to_dll_search_path(app_dir: Path) -> bool:
+    """Legacy wrapper: registers `<app_dir>/cuda/` on the DLL search path."""
+    return add_cuda_to_dll_search_path_at(app_dir / "cuda")

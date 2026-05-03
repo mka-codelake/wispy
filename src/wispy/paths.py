@@ -39,6 +39,23 @@ def resolve_model_path(model_name: str, model_path: Optional[str] = None) -> Pat
     return (get_app_dir() / "models" / model_name).resolve()
 
 
+def resolve_cuda_path(cuda_path: Optional[str] = None) -> Path:
+    """Resolve the effective CUDA runtime directory.
+
+    Mirrors `resolve_model_path`. The CUDA DLLs (cublas64_12.dll, cudnn_*,
+    cudart64_12.dll) live here, plus a `_version.txt` marker.
+
+    - If cuda_path is set, use it (absolute or relative to app_dir).
+    - Otherwise fall back to <app_dir>/cuda.
+    """
+    if cuda_path:
+        p = Path(cuda_path)
+        if not p.is_absolute():
+            p = get_app_dir() / p
+        return p.resolve()
+    return (get_app_dir() / "cuda").resolve()
+
+
 def check_model_complete(model_dir: Path) -> bool:
     """Return True if model_dir exists and contains every required file."""
     if not model_dir.is_dir():

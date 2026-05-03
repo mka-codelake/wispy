@@ -38,6 +38,7 @@ class TestPowerShellFilterMatchesPythonWhitelist:
 
         script = updater._build_swap_script(
             app_dir=app_dir,
+            cuda_dir=app_dir / "cuda",
             new_app_bundle=app_bundle,
             new_cuda_bundle=cuda_bundle,
             backup=backup,
@@ -59,6 +60,7 @@ class TestPowerShellFilterMatchesPythonWhitelist:
 
         script = updater._build_swap_script(
             app_dir=app_dir,
+            cuda_dir=app_dir / "cuda",
             new_app_bundle=app_bundle,
             new_cuda_bundle=cuda_bundle,
             backup=backup,

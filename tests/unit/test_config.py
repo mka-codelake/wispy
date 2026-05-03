@@ -30,6 +30,9 @@ class TestConfigDefaults:
             "restore_clipboard",
             "update_check",
             "auto_update",
+            "cuda_path",
+            "model_local_source",
+            "cuda_local_source",
         }
         assert names == expected
 

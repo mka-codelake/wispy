@@ -1,16 +1,26 @@
 """First-run model download via huggingface_hub.snapshot_download."""
 
+import shutil
 import sys
 from pathlib import Path
+from typing import Optional
 
 from .paths import REQUIRED_MODEL_FILES, check_model_complete, missing_model_files
 
 
-def ensure_model_available(model_hub_id: str, target_dir: Path) -> None:
+def ensure_model_available(
+    model_hub_id: str,
+    target_dir: Path,
+    local_source: Optional[Path] = None,
+) -> None:
     """Make sure the Whisper model is present in target_dir.
 
     If target_dir already contains all required files, this is a no-op.
-    Otherwise the model is downloaded from Hugging Face into target_dir.
+    Otherwise:
+      - If `local_source` is given and points to a directory containing
+        a complete model: copy it into target_dir (offline / test path).
+      - Otherwise: download the model from Hugging Face into target_dir.
+
     Raises RuntimeError with a readable message on failure.
     """
     if check_model_complete(target_dir):
@@ -22,11 +32,41 @@ def ensure_model_available(model_hub_id: str, target_dir: Path) -> None:
         missing = missing_model_files(target_dir)
         print(
             f"[model] Found incomplete model in {target_dir}. "
-            f"Missing: {', '.join(missing)}. Will re-download."
+            f"Missing: {', '.join(missing)}. Will re-fetch."
         )
     else:
         print(f"[model] Model not found in {target_dir}.")
 
+    # --- Test-bootstrap path: copy from a local directory --------------------
+    if local_source is not None:
+        if not local_source.is_dir():
+            raise RuntimeError(
+                f"Configured model_local_source does not exist or is not a directory:\n"
+                f"  {local_source}"
+            )
+        if not check_model_complete(local_source):
+            missing = missing_model_files(local_source)
+            raise RuntimeError(
+                f"model_local_source is incomplete:\n"
+                f"  Path    : {local_source}\n"
+                f"  Missing : {', '.join(missing)}\n"
+                f"Either fill in the missing files or unset model_local_source "
+                f"to fall back to the Hugging Face download."
+            )
+        print(f"[model] Copying from local source {local_source} ...")
+        for name in REQUIRED_MODEL_FILES:
+            shutil.copy2(local_source / name, target_dir / name)
+        if not check_model_complete(target_dir):
+            missing = missing_model_files(target_dir)
+            raise RuntimeError(
+                f"Copy from local source completed but the model is still incomplete.\n"
+                f"  Path    : {target_dir}\n"
+                f"  Missing : {', '.join(missing)}"
+            )
+        print(f"[model] Model is ready at {target_dir}.")
+        return
+
+    # --- Network path: download from Hugging Face ----------------------------
     print(
         f"[model] Downloading '{model_hub_id}' to {target_dir}.\n"
         f"[model] This happens once at first start (~1.6 GB, takes a few minutes) ..."

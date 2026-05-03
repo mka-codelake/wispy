@@ -193,23 +193,113 @@ class TestValidateZip:
 class TestExtractCudaZip:
     def test_replaces_existing_cuda_dir(self, fake_app_dir):
         # Pre-existing junk in cuda/ — must be wiped before extract
-        old = fake_app_dir / "cuda"
-        old.mkdir()
-        (old / "stale.txt").write_text("stale")
+        cuda_dir = fake_app_dir / "cuda"
+        cuda_dir.mkdir()
+        (cuda_dir / "stale.txt").write_text("stale")
 
         zip_path = fake_app_dir / "good.zip"
         _make_cuda_zip(zip_path)
 
-        result = cuda_loader._extract_cuda_zip(zip_path, fake_app_dir)
+        result = cuda_loader._extract_cuda_zip_to(zip_path, cuda_dir)
 
         assert result is True
-        assert (fake_app_dir / "cuda" / "cublas64_12.dll").is_file()
-        assert not (fake_app_dir / "cuda" / "stale.txt").exists()
+        assert (cuda_dir / "cublas64_12.dll").is_file()
+        assert not (cuda_dir / "stale.txt").exists()
 
 
 # ---------------------------------------------------------------------------
 # install_cuda_bundle
 # ---------------------------------------------------------------------------
+
+class TestInstallCudaFromLocal:
+    def test_zip_file_is_validated_and_extracted(self, fake_app_dir, tmp_path):
+        zip_src = tmp_path / "wispy-cuda-v12.9.1.zip"
+        _make_cuda_zip(zip_src, version="12.9.1")
+        cuda_dir = fake_app_dir / "cuda"
+
+        result = cuda_loader.install_cuda_from_local(zip_src, cuda_dir)
+
+        assert result is True
+        assert (cuda_dir / "cublas64_12.dll").is_file()
+        assert (cuda_dir / "_version.txt").read_text(encoding="utf-8").strip() == "12.9.1"
+
+    def test_invalid_zip_returns_false_and_leaves_target_untouched(
+        self, fake_app_dir, tmp_path
+    ):
+        bad_zip = tmp_path / "bad.zip"
+        bad_zip.write_bytes(b"not a zip")
+        cuda_dir = fake_app_dir / "cuda"
+
+        result = cuda_loader.install_cuda_from_local(bad_zip, cuda_dir)
+
+        assert result is False
+        assert not cuda_dir.exists()
+
+    def test_directory_source_is_copied(self, fake_app_dir, tmp_path):
+        source = tmp_path / "extracted-cuda"
+        source.mkdir()
+        (source / "cublas64_12.dll").write_bytes(b"stub")
+        (source / "cudnn_engine.dll").write_bytes(b"stub")
+        (source / "_version.txt").write_text("12.9.1", encoding="utf-8")
+        cuda_dir = fake_app_dir / "shared" / "cuda"
+
+        result = cuda_loader.install_cuda_from_local(source, cuda_dir)
+
+        assert result is True
+        assert (cuda_dir / "cublas64_12.dll").is_file()
+        assert (cuda_dir / "_version.txt").read_text().strip() == "12.9.1"
+
+    def test_directory_without_dlls_returns_false(self, fake_app_dir, tmp_path):
+        source = tmp_path / "broken-cuda"
+        source.mkdir()
+        (source / "_version.txt").write_text("12.9.1")  # no DLLs
+        cuda_dir = fake_app_dir / "cuda"
+
+        result = cuda_loader.install_cuda_from_local(source, cuda_dir)
+
+        assert result is False
+        assert not cuda_dir.exists()
+
+    def test_missing_local_source_returns_false(self, fake_app_dir):
+        absent = fake_app_dir / "does-not-exist"
+        cuda_dir = fake_app_dir / "cuda"
+
+        assert cuda_loader.install_cuda_from_local(absent, cuda_dir) is False
+        assert not cuda_dir.exists()
+
+    def test_replaces_existing_cuda_dir_when_installing_from_zip(
+        self, fake_app_dir, tmp_path
+    ):
+        cuda_dir = fake_app_dir / "cuda"
+        cuda_dir.mkdir()
+        (cuda_dir / "stale.txt").write_text("stale")
+
+        zip_src = tmp_path / "cuda.zip"
+        _make_cuda_zip(zip_src, version="12.9.1")
+
+        result = cuda_loader.install_cuda_from_local(zip_src, cuda_dir)
+
+        assert result is True
+        assert (cuda_dir / "cublas64_12.dll").is_file()
+        assert not (cuda_dir / "stale.txt").exists()
+
+
+class TestCudaDirAtHelpers:
+    def test_is_cuda_installed_at_returns_false_for_missing_dir(self, fake_app_dir):
+        assert cuda_loader.is_cuda_installed_at(fake_app_dir / "absent") is False
+
+    def test_is_cuda_installed_at_returns_true_when_dlls_present(self, fake_app_dir):
+        cuda = fake_app_dir / "shared" / "cuda"
+        cuda.mkdir(parents=True)
+        (cuda / "cublas64_12.dll").write_bytes(b"stub")
+        assert cuda_loader.is_cuda_installed_at(cuda) is True
+
+    def test_find_local_cuda_version_at_reads_marker(self, fake_app_dir):
+        cuda = fake_app_dir / "shared" / "cuda"
+        cuda.mkdir(parents=True)
+        (cuda / "_version.txt").write_text("12.6.0", encoding="utf-8")
+        assert str(cuda_loader.find_local_cuda_version_at(cuda)) == "12.6.0"
+
 
 class TestInstallCudaBundle:
     def test_returns_false_when_release_has_no_zip_asset(self, fake_app_dir):
