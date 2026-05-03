@@ -5,6 +5,33 @@ All notable changes to wispy will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] — 2026-05-03
+
+Hotfix für zwei in v0.4.1/v0.4.2 noch enthaltene Probleme.
+
+### Fixed
+- **CUDA-Treiber wurden trotz Installation nicht gefunden.** In v0.2.0
+  / v0.3.0 lagen die NVIDIA-DLLs in `<app_dir>/_internal/`, einem
+  Verzeichnis, das Windows beim DLL-Loading frozen-PyInstaller-Bundles
+  automatisch durchsucht. Mit dem Plugin-Modell ab v0.4.0 liegen sie in
+  `<cuda_dir>` (Default `<app_dir>/cuda/`), was nicht im Default-
+  Search-Path ist. `os.add_dll_directory()` allein hat nicht gereicht,
+  weil CTranslate2 cuBLAS / cuDNN / cudart als transitive Dependencies
+  über den Standard-Resolver lädt — der respektiert nur `PATH`. wispy
+  prependiert `cuda_dir` jetzt zur Laufzeit an `os.environ["PATH"]`,
+  damit alle DLL-Lookups (auch transitive) das Verzeichnis sehen.
+  Symptom war: `[transcribe] CUDA load failed: Library cublas64_12.dll
+  is not found or cannot be loaded` beim ersten Hotkey-Druck, danach
+  CPU-Fallback. Mit dem Fix nutzt wispy auf NVIDIA-Maschinen wie
+  vorgesehen die GPU.
+- **Modell-Download zeigte keinen Fortschritt.** v0.4.1 hatte
+  `HF_HUB_DISABLE_PROGRESS_BARS=1` gesetzt, um eine kosmetische
+  `Download complete:`-Zeile loszuwerden, die nach `[wispy] Ready!` auf
+  der Konsole landete. Das war zu hart — der User saß fünf Minuten vor
+  schwarzem Output. wispy lässt huggingface_hub jetzt wieder seine
+  tqdm-Bar zeigen. Die kosmetische Final-Zeile nach `Ready!` ist als
+  akzeptabler Trade-off eingeplant.
+
 ## [0.4.2] — 2026-05-03
 
 Test-Komfort: lokale Bezugsquellen für CUDA-Bundle und Whisper-Modell.
@@ -153,6 +180,7 @@ Wer von **v0.3.0** kommt:
   The optional `GITHUB_TOKEN` environment variable is still honored for
   higher rate limits but never required.
 
+[0.4.3]: https://github.com/mka-codelake/wispy/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/mka-codelake/wispy/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/mka-codelake/wispy/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/mka-codelake/wispy/compare/v0.3.0...v0.4.0

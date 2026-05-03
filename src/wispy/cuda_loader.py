@@ -318,20 +318,44 @@ def install_cuda_bundle(release: dict, app_dir_or_cuda_dir: Path, *, cuda_dir: O
 def add_cuda_to_dll_search_path_at(cuda_dir: Path) -> bool:
     """Make `cuda_dir` visible to CTranslate2's DLL loader.
 
-    Uses os.add_dll_directory (Python 3.8+, Windows). On non-Windows or when
-    the call is unavailable this is a no-op. Returns True if the directory
-    was registered.
+    CTranslate2's native library loads cuBLAS / cuDNN / cudart as transitive
+    dependencies, not as explicit `LoadLibraryEx` calls — so
+    `os.add_dll_directory()` alone is *not* enough (it only takes effect for
+    loads that pass `LOAD_LIBRARY_SEARCH_USER_DIRS`). To cover the transitive
+    case we additionally prepend `cuda_dir` to the process `PATH`, which is
+    consulted by every standard `LoadLibrary` call.
+
+    This mirrors the v0.2.0/v0.3.0 setup, where the same DLLs were dropped
+    into `<app_dir>/_internal/` — a directory Windows finds automatically
+    for frozen PyInstaller bundles. Plugin-model puts the DLLs in
+    `<cuda_dir>` instead, so we re-create the equivalent search behaviour
+    explicitly here.
+
+    Returns True if the directory was registered, False if `cuda_dir` does
+    not exist.
     """
     if not cuda_dir.is_dir():
         return False
+
+    cuda_str = str(cuda_dir)
+
+    # Prepend to PATH so transitive DLL dependencies of CTranslate2's native
+    # lib resolve correctly. Idempotent — a second call does not duplicate.
+    current_path = os.environ.get("PATH", "")
+    parts = current_path.split(os.pathsep) if current_path else []
+    if cuda_str not in parts:
+        os.environ["PATH"] = (cuda_str + os.pathsep + current_path) if current_path else cuda_str
+
+    # Also register via add_dll_directory when available. This helps Python-
+    # level CDLL/WinDLL loads that opt into LOAD_LIBRARY_SEARCH_USER_DIRS.
     add_dll_directory = getattr(os, "add_dll_directory", None)
-    if add_dll_directory is None:
-        return False
-    try:
-        add_dll_directory(str(cuda_dir))
-        return True
-    except OSError:
-        return False
+    if add_dll_directory is not None:
+        try:
+            add_dll_directory(cuda_str)
+        except OSError:
+            pass
+
+    return True
 
 
 def add_cuda_to_dll_search_path(app_dir: Path) -> bool:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -282,6 +283,64 @@ class TestInstallCudaFromLocal:
         assert result is True
         assert (cuda_dir / "cublas64_12.dll").is_file()
         assert not (cuda_dir / "stale.txt").exists()
+
+
+class TestAddCudaToDllSearchPath:
+    """Verifies the PATH-prepending behaviour of `add_cuda_to_dll_search_path_at`.
+
+    Background: `os.add_dll_directory()` only covers DLL loads that pass
+    `LOAD_LIBRARY_SEARCH_USER_DIRS`. CTranslate2 loads cuBLAS / cuDNN /
+    cudart as transitive dependencies via the standard resolver, which
+    requires the DLL directory to live on `PATH`. Without this we get
+    `Library cublas64_12.dll is not found or cannot be loaded` even when
+    the bundle is correctly installed.
+    """
+
+    def test_returns_false_when_cuda_dir_missing(self, monkeypatch, fake_app_dir):
+        monkeypatch.setenv("PATH", "/usr/bin")
+        absent = fake_app_dir / "absent-cuda"
+
+        result = cuda_loader.add_cuda_to_dll_search_path_at(absent)
+
+        assert result is False
+        # PATH must be unchanged
+        assert os.environ["PATH"] == "/usr/bin"
+
+    def test_prepends_cuda_dir_to_path(self, monkeypatch, fake_app_dir):
+        cuda = fake_app_dir / "cuda"
+        cuda.mkdir()
+        (cuda / "cublas64_12.dll").write_bytes(b"stub")
+
+        monkeypatch.setenv("PATH", "/usr/bin")
+        result = cuda_loader.add_cuda_to_dll_search_path_at(cuda)
+
+        assert result is True
+        path_parts = os.environ["PATH"].split(os.pathsep)
+        assert path_parts[0] == str(cuda)
+        assert "/usr/bin" in path_parts
+
+    def test_does_not_duplicate_on_repeated_call(self, monkeypatch, fake_app_dir):
+        cuda = fake_app_dir / "cuda"
+        cuda.mkdir()
+        (cuda / "cublas64_12.dll").write_bytes(b"stub")
+
+        monkeypatch.setenv("PATH", "/usr/bin")
+        cuda_loader.add_cuda_to_dll_search_path_at(cuda)
+        cuda_loader.add_cuda_to_dll_search_path_at(cuda)
+
+        path_parts = os.environ["PATH"].split(os.pathsep)
+        assert path_parts.count(str(cuda)) == 1
+
+    def test_handles_empty_initial_path(self, monkeypatch, fake_app_dir):
+        cuda = fake_app_dir / "cuda"
+        cuda.mkdir()
+        (cuda / "cublas64_12.dll").write_bytes(b"stub")
+
+        monkeypatch.setenv("PATH", "")
+        result = cuda_loader.add_cuda_to_dll_search_path_at(cuda)
+
+        assert result is True
+        assert os.environ["PATH"] == str(cuda)
 
 
 class TestCudaDirAtHelpers:

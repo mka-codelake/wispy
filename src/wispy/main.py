@@ -241,9 +241,11 @@ def main():
           f"model={cfg.model_name}, device={effective_device}, lang={cfg.language}")
 
     # --- Ensure model is present (first-run download or local copy) ----------
-    # Disable hf_hub's tqdm bars so they cannot trail past wispy's "Ready!"
-    # line. wispy prints its own concise status messages instead.
-    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+    # Note: hf_hub's tqdm progress is left enabled so the user sees what is
+    # going on during the multi-minute initial download. The trade-off is a
+    # final "Download complete:" line that may land just below wispy's
+    # "[wispy] Ready!" banner — that's accepted as preferable to a silent
+    # five-minute wait.
     model_local_source: Path | None = None
     if cfg.model_local_source:
         model_local_source = Path(cfg.model_local_source)
