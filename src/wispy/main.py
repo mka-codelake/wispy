@@ -64,7 +64,7 @@ from .cuda_loader import (  # noqa: E402
     is_cuda_installed,
 )
 from .feedback import beep_start, beep_stop  # noqa: E402
-from .gpu_detect import has_nvidia_gpu  # noqa: E402
+from .gpu_detect import detect_nvidia_gpu  # noqa: E402
 from .hotkey import HotkeyListener  # noqa: E402
 from .model_fetch import ensure_model_available  # noqa: E402
 from .output import type_text  # noqa: E402
@@ -82,38 +82,45 @@ from .updater import (  # noqa: E402
 MIN_DURATION_SEC = 0.3
 
 
-def _restart_wispy() -> None:
-    """Re-launch wispy with the same argv, then exit the current process.
+def _ensure_cuda_or_fallback(cfg: Config, app_dir: Path) -> bool:
+    """Decide whether the run should use CUDA, installing the bundle if needed.
 
-    Used after a successful lazy CUDA download so the freshly installed
-    DLLs are picked up cleanly by a fresh CTranslate2 import.
-    """
-    import subprocess
+    Returns True if `<app_dir>/cuda/` is populated and ready to be added to
+    the DLL search path. Returns False in every other case (user declined,
+    no GPU, install failed, device forced to CPU).
 
-    if getattr(sys, "frozen", False):
-        argv = [sys.executable] + sys.argv[1:]
-    else:
-        argv = [sys.executable, "-m", "wispy"] + sys.argv[1:]
-    print("[wispy] Restarting ...")
-    subprocess.Popen(argv)
-    sys.exit(0)
+    Behaviour:
 
+    - cfg.device == "cpu"         → never CUDA, return False without prompts.
+    - cuda/ already populated     → CUDA is ready, return True.
+    - GPU detection result:
+        * "yes"      → tell the user, ask, install on accept.
+        * "no"       → no prompt; return False.
+        * "unknown"  → we cannot tell. Prompt with a clear notice so the
+                       user can confirm if they have a card. Otherwise wispy
+                       on a NVIDIA system would silently default to CPU and
+                       then crash on the first transcribe call.
 
-def _maybe_offer_cuda_install(cfg: Config, app_dir: Path) -> None:
-    """Offer to download the CUDA runtime bundle on first start with a NVIDIA GPU.
-
-    No-op when device is forced to "cpu", when no NVIDIA GPU is detected,
-    or when the cuda/ directory is already populated.
+    The function does NOT exit/restart the process. After a successful
+    install, control returns to main() so the rest of startup can proceed
+    in the same process.
     """
     if cfg.device == "cpu":
-        return
-    if not has_nvidia_gpu():
-        return
+        return False
     if is_cuda_installed(app_dir):
-        return
+        return True
 
-    print("[gpu] NVIDIA GPU detected.")
-    print("[gpu] CUDA runtime is not installed yet (~1.5 GB download).")
+    gpu_status = detect_nvidia_gpu()
+    if gpu_status == "no":
+        return False
+
+    if gpu_status == "yes":
+        print("[gpu] NVIDIA GPU detected.")
+    else:  # "unknown"
+        print("[gpu] Could not detect a NVIDIA GPU automatically (nvidia-smi missing or unresponsive).")
+        print("[gpu] If you have a NVIDIA card, you can still install the CUDA runtime.")
+    print("[gpu] CUDA runtime is not installed yet (~1.3 GB download).")
+
     try:
         answer = input("[gpu] Download CUDA runtime now? [y/N]: ").strip().lower()
     except EOFError:
@@ -123,17 +130,36 @@ def _maybe_offer_cuda_install(cfg: Config, app_dir: Path) -> None:
 
     if answer not in ("y", "yes", "j", "ja"):
         print("[gpu] Skipping CUDA install. wispy will run on CPU.")
-        return
+        return False
 
     release = fetch_latest_cuda_release()
     if release is None:
         print("[gpu] No CUDA release found on GitHub — running on CPU.")
-        return
+        return False
 
-    if install_cuda_bundle(release, app_dir):
-        _restart_wispy()
-    else:
+    if not install_cuda_bundle(release, app_dir):
         print("[gpu] CUDA install failed — running on CPU.")
+        return False
+
+    print("[gpu] CUDA runtime ready.")
+    return True
+
+
+def _resolve_effective_device(cfg: Config, cuda_available: bool) -> tuple[str, str]:
+    """Pick (device, compute_type) for the Transcriber given the cuda/ state.
+
+    The Transcriber must never be initialised with a GPU device when the
+    CUDA bundle is not present, otherwise CTranslate2 will crash on the
+    first transcribe() call with a missing-DLL error. This helper enforces
+    that invariant.
+    """
+    if cfg.device == "cpu":
+        return "cpu", cfg.compute_type
+    if cuda_available:
+        return cfg.device, cfg.compute_type
+    if cfg.device == "cuda":
+        print("[wispy] device=cuda configured but CUDA runtime is missing — falling back to CPU.")
+    return "cpu", cfg.compute_type
 
 
 def main():
@@ -188,17 +214,26 @@ def main():
           f"({'found' if config_path.exists() else 'defaults'})")
     print(f"[wispy] model_path  = {model_path}")
     print(f"[wispy] vocabulary  = {len(vocabulary)} term(s) loaded")
-    print(f"[wispy] hotkey={cfg.hotkey}, mode={cfg.record_mode}, "
-          f"model={cfg.model_name}, device={cfg.device}, lang={cfg.language}")
 
     # --- Lazy CUDA install on first start with a NVIDIA GPU ----------------
-    _maybe_offer_cuda_install(cfg, app_dir)
+    cuda_available = _ensure_cuda_or_fallback(cfg, app_dir)
+    if cuda_available:
+        # Register cuda/ on the DLL search path so CTranslate2 finds the
+        # NVIDIA libraries on first WhisperModel(...) call.
+        add_cuda_to_dll_search_path(app_dir)
 
-    # Make CTranslate2 see <app_dir>/cuda/ when looking for the NVIDIA DLLs.
-    # No-op on CPU systems and on Linux/macOS dev runs.
-    add_cuda_to_dll_search_path(app_dir)
+    # Pick effective device. If cuda/ is missing we MUST force CPU here,
+    # otherwise CTranslate2 happily initialises and then crashes on the
+    # first transcribe() call with a missing-DLL error.
+    effective_device, effective_compute_type = _resolve_effective_device(cfg, cuda_available)
+
+    print(f"[wispy] hotkey={cfg.hotkey}, mode={cfg.record_mode}, "
+          f"model={cfg.model_name}, device={effective_device}, lang={cfg.language}")
 
     # --- Ensure model is present (first-run download if needed) ----------
+    # Disable hf_hub's tqdm bars so they cannot trail past wispy's "Ready!"
+    # line. wispy prints its own concise status messages instead.
+    os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
     try:
         ensure_model_available(cfg.model_hub_id, model_path)
     except RuntimeError as e:
@@ -214,8 +249,8 @@ def main():
 
     transcriber = Transcriber(
         model_path=model_path,
-        device=cfg.device,
-        compute_type=cfg.compute_type,
+        device=effective_device,
+        compute_type=effective_compute_type,
         language=cfg.language,
         beam_size=cfg.beam_size,
         initial_prompt=cfg.initial_prompt,

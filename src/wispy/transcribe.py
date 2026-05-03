@@ -28,10 +28,16 @@ _CUDA_DLL_HINTS = (
 class Transcriber:
     """Loads the Whisper model once, then transcribes audio arrays.
 
-    With device="auto" CTranslate2 picks GPU when available and falls back
-    to CPU otherwise. wispy registers the cuda/ DLL directory before this
-    constructor runs (see main.py) so CTranslate2 can find the bundled
-    NVIDIA libraries when the user has installed them.
+    main.py decides on a concrete device before instantiating us — when
+    `<app_dir>/cuda/` is missing, it forces device="cpu" so CTranslate2
+    cannot try to load the unavailable NVIDIA DLLs. We still keep two
+    layers of CUDA fallback as defence in depth:
+
+    - At construction time, if the chosen device fails to load with a
+      CUDA-shaped error, we retry with device="cpu" once.
+    - At transcribe time, if the first dictation crashes with a similar
+      error (CTranslate2 sometimes only loads CUDA backends lazily), we
+      rebuild the model on CPU and retry the call once.
     """
 
     def __init__(
@@ -48,6 +54,9 @@ class Transcriber:
         self.beam_size = beam_size
         self.initial_prompt = initial_prompt or None
         self.hotwords = hotwords or None
+        self._model_path = model_path
+        self._device = device
+        self._compute_type = compute_type
 
         if not check_model_complete(model_path):
             missing = missing_model_files(model_path)
@@ -68,26 +77,29 @@ class Transcriber:
             )
         except Exception as e:
             if self._looks_like_cuda_failure(e, device):
-                # Fall back to CPU once before giving up. This matches the
-                # plugin-model promise that wispy stays usable even when the
-                # local CUDA bundle is missing or incompatible.
-                print("[transcribe] CUDA load failed — falling back to CPU.", file=sys.stderr)
-                print(f"[transcribe] Reason: {e}", file=sys.stderr)
-                try:
-                    self.model = WhisperModel(
-                        str(model_path),
-                        device="cpu",
-                        compute_type="int8",
-                        local_files_only=True,
-                    )
-                    print("[transcribe] Model ready on CPU (fallback).")
-                    return
-                except Exception as e2:
-                    self._explain_load_error(e2, "cpu")
-                    raise
+                self._fallback_to_cpu(reason=e)
+                return
             self._explain_load_error(e, device)
             raise
         print("[transcribe] Model ready.")
+
+    def _fallback_to_cpu(self, reason: Exception) -> None:
+        """Reload the model on CPU. Used both at init and at runtime fallback."""
+        print(f"[transcribe] CUDA load failed: {reason}", file=sys.stderr)
+        print("[transcribe] Falling back to CPU — slower but reliable.", file=sys.stderr)
+        try:
+            self.model = WhisperModel(
+                str(self._model_path),
+                device="cpu",
+                compute_type="int8",
+                local_files_only=True,
+            )
+            self._device = "cpu"
+            self._compute_type = "int8"
+            print("[transcribe] Model ready on CPU (fallback).")
+        except Exception as e2:
+            self._explain_load_error(e2, "cpu")
+            raise
 
     @staticmethod
     def _looks_like_cuda_failure(err: Exception, device: str) -> bool:
@@ -131,6 +143,17 @@ class Transcriber:
 
     def transcribe(self, audio: np.ndarray) -> str:
         """Transcribe a float32 mono audio array and return the text."""
+        try:
+            return self._do_transcribe(audio)
+        except Exception as e:
+            if self._looks_like_cuda_failure(e, self._device):
+                # CTranslate2 sometimes only loads the CUDA backend on the
+                # first compute call. Rebuild on CPU and retry once.
+                self._fallback_to_cpu(reason=e)
+                return self._do_transcribe(audio)
+            raise
+
+    def _do_transcribe(self, audio: np.ndarray) -> str:
         segments, _info = self.model.transcribe(
             audio,
             language=self.language,

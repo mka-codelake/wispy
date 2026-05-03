@@ -29,7 +29,7 @@ def ensure_model_available(model_hub_id: str, target_dir: Path) -> None:
 
     print(
         f"[model] Downloading '{model_hub_id}' to {target_dir}.\n"
-        f"[model] This happens once at first start and needs internet (~1.6 GB)."
+        f"[model] This happens once at first start (~1.6 GB, takes a few minutes) ..."
     )
 
     try:

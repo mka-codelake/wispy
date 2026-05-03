@@ -5,6 +5,39 @@ All notable changes to wispy will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] — 2026-05-03
+
+Hotfix für die in v0.4.0 gefundenen UX- und Stabilitätsprobleme nach dem
+ersten Praxistest.
+
+### Fixed
+- **`cublas64_12.dll not found` beim ersten Diktat behoben.** v0.4.0
+  konnte unter bestimmten Bedingungen den Transcriber mit `device="auto"`
+  initialisieren, obwohl gar kein CUDA-Bundle vorhanden war — der Crash
+  trat dann erst beim ersten Hotkey-Druck auf. Beim Start wird jetzt
+  zwingend geprüft, ob `<app_dir>/cuda/` existiert und Inhalt hat;
+  wenn nicht, wird der Transcriber direkt auf `device="cpu"` initialisiert.
+- **GPU-Erkennung robuster** — neue dreiwertige Detection
+  (`yes` / `no` / `unknown`). Wenn `nvidia-smi` nicht im PATH liegt oder
+  ein Timeout auftritt, fragt wispy jetzt trotzdem nach, statt stumm
+  auf CPU zu schalten. Vorher konnte eine echte NVIDIA-Karte unentdeckt
+  bleiben und der CUDA-Prompt entfiel.
+- **Zusätzlicher Runtime-Fallback in `transcribe.py`** — selbst wenn
+  CTranslate2 die CUDA-Libraries erst beim Inference lädt und dort
+  scheitert, baut wispy das Modell intern auf CPU neu und erledigt das
+  Diktat. Kein harter Crash mehr während eines Hotkey-Drucks.
+
+### Changed
+- **Kein Self-Restart mehr nach CUDA-Download.** Nach erfolgreicher
+  Installation des CUDA-Bundles läuft wispy direkt im selben Prozess
+  weiter — der Modell-Download und alles weitere passieren nahtlos
+  ohne erneuten Programmstart.
+- **Konsole nach `Ready!` aufgeräumt.** Die `Download complete: …`-
+  Zeile von `huggingface_hub` taucht jetzt nicht mehr nach dem
+  `[wispy] Ready!`-Banner auf. wispy setzt
+  `HF_HUB_DISABLE_PROGRESS_BARS=1` und gibt eigene, klare
+  Status-Meldungen für den Modell-Download.
+
 ## [0.4.0] — 2026-05-03
 
 ### Changed
@@ -88,6 +121,7 @@ Wer von **v0.3.0** kommt:
   The optional `GITHUB_TOKEN` environment variable is still honored for
   higher rate limits but never required.
 
+[0.4.1]: https://github.com/mka-codelake/wispy/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/mka-codelake/wispy/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/mka-codelake/wispy/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/mka-codelake/wispy/releases/tag/v0.2.0
