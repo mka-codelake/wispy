@@ -27,22 +27,22 @@ All notable changes to wispy will be documented in this file.
 
 ## [0.4.3] — 2026-05-03
 
-Hotfix für zwei Probleme aus v0.4.1.
+Hotfix for two issues from v0.4.1.
 
 ### Fixed
-- CUDA-Treiber wurden trotz Installation nicht gefunden.
-- Modell-Download zeigte keinen Fortschritt.
+- CUDA libraries not found despite a successful install.
+- Model download showed no progress.
 
 ## [0.4.2] — 2026-05-03
 
-Test-Komfort.
+Test ergonomics.
 
 ### Added
 - `cuda_path` in config.yaml.
-- `model_local_source` und `cuda_local_source`.
+- `model_local_source` and `cuda_local_source`.
 
 ### Changed
-- cuda_loader API erweitert.
+- cuda_loader API extended.
 
 ## [0.3.0] — 2026-05-02
 
@@ -62,9 +62,9 @@ class TestExtractSection:
     def test_returns_body_for_existing_version(self):
         body = extract_section(SAMPLE_CHANGELOG, "0.4.3")
         assert body is not None
-        assert "Hotfix für zwei Probleme" in body
+        assert "Hotfix for two issues" in body
         assert "### Fixed" in body
-        assert "CUDA-Treiber" in body
+        assert "CUDA libraries" in body
 
     def test_excludes_heading_line(self):
         body = extract_section(SAMPLE_CHANGELOG, "0.4.3")
@@ -74,15 +74,15 @@ class TestExtractSection:
     def test_stops_before_next_section_heading(self):
         body = extract_section(SAMPLE_CHANGELOG, "0.4.3")
         # Must not bleed into v0.4.2's content
-        assert "Test-Komfort" not in body
+        assert "Test ergonomics" not in body
         assert "cuda_path" not in body
 
     def test_middle_section_isolates_content(self):
         body = extract_section(SAMPLE_CHANGELOG, "0.4.2")
         assert body is not None
-        assert "Test-Komfort" in body
+        assert "Test ergonomics" in body
         assert "cuda_path" in body
-        assert "cuda_loader API erweitert" in body
+        assert "cuda_loader API extended" in body
         # Not bleeding into next or previous
         assert "Hotfix" not in body
         assert "Update mechanism" not in body
@@ -108,7 +108,7 @@ class TestExtractSection:
         crlf = SAMPLE_CHANGELOG.replace("\n", "\r\n")
         body = extract_section(crlf, "0.4.3")
         assert body is not None
-        assert "Hotfix für zwei Probleme" in body
+        assert "Hotfix for two issues" in body
 
     def test_body_is_trimmed(self):
         body = extract_section(SAMPLE_CHANGELOG, "0.4.3")

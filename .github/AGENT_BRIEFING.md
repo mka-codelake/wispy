@@ -64,7 +64,17 @@ You **never** flip a PR from Draft to Ready yourself, and you never close, merge
 
 ## Style
 
-- Match the existing code style. The repo uses German for user-facing strings and CLAUDE.md; keep code identifiers and PR descriptions in English for tooling compatibility.
+- Match the existing code style.
+- **Repo language is English.** All committed content — code, comments,
+  docstrings, doc files (CHANGELOG.md, CLAUDE.md, README.md, build/README.txt,
+  workflow YAML comments, issue templates), commit messages, PR titles and
+  PR descriptions, test fixture data, GitHub Release notes — must be in
+  English. wispy is not localised; the German `language: de` default in
+  `config.yaml` only configures Whisper's transcription target, not the
+  project itself. Do not write German into any committed file. Console
+  output may use German only when echoing a user-supplied string back
+  (e.g. transcribed text); all wispy-authored console messages are
+  English too.
 - No new dependencies without justification in the plan.
 - No speculative abstractions. Solve the issue, nothing beyond it.
 - Keep comments minimal — explain *why*, not *what*.

@@ -5,205 +5,215 @@ All notable changes to wispy will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.4] — 2026-05-03
-
-config.yaml-Politur und automatische Migration für ältere config.yaml-Dateien.
+## [0.4.5] — 2026-05-03
 
 ### Changed
-- **`config.yaml` neu sortiert und konsistent kommentiert.** Pfad-Felder
-  liegen jetzt direkt bei ihrem Funktionsblock (`model_path` bei Model,
-  `cuda_path` bei CUDA), die Test-Bootstrap-Felder
-  (`model_local_source`, `cuda_local_source`) sind in einer eigenen
-  Sektion „Local sources (advanced / for testing)" gebündelt. Jeder
-  Pfad-Feld hat jetzt einen 3–4-zeiligen Erklärungsblock plus
-  auskommentiertes Beispiel — gleiche Tiefe wie das bisherige
-  `model_path`. Sektion-Header sind durch `# ===`-Linien sichtbarer.
+- **Documentation language standardised on English.** All repo
+  artefacts that are visible to contributors, end users or in GitHub
+  Releases are now in English: this changelog (every prior block has
+  been re-written), `CLAUDE.md`, the in-bundle `build/README.txt`,
+  test fixture data, and the `AGENT_BRIEFING.md` style rule. Code,
+  console output and config comments were already English.
+
+## [0.4.4] — 2026-05-03
+
+Polish for `config.yaml` plus automatic migration for older user-side
+copies of the file.
+
+### Changed
+- **`config.yaml` reordered and consistently commented.** Path-typed
+  fields now sit next to their functional block (`model_path` under
+  Model, `cuda_path` under CUDA), the test bootstrap fields
+  (`model_local_source`, `cuda_local_source`) live in their own
+  "Local sources (advanced / for testing)" section. Every path field
+  has a 3-4 line explanation block plus a commented example value —
+  the same depth as the original `model_path` block. Section headers
+  are visually separated by `# ===` rules.
 
 ### Added
-- **Automatische Migration der user-side `config.yaml`** beim Start.
-  Wenn wispy in einer neueren Version Felder kennt, die deine bestehende
-  `config.yaml` noch nicht hat, läuft beim Start eine Migration:
-  - **Backup** der bestehenden Datei nach `config.yaml.backup`
-    (überschreibt bei mehrfacher Migration — letzter Stand zählt).
-  - **Default-Template** (eine im Bundle mitgelieferte Kopie der
-    aktuellen `config.yaml`) wird als neue Basis verwendet.
-  - **Deine angepassten Werte** werden per Line-Replace ins neue
-    Template übernommen — Dataclass-Default vs. dein Wert wird verglichen,
-    Abweichungen werden erhalten.
-  - **Kommentare** in deiner alten `config.yaml` gehen verloren (Backup
-    bleibt). Die Sektion-Kommentare aus dem neuen Template ersetzen sie.
-  - **Multi-line Werte** (z.B. mehrzeiliger `initial_prompt`) werden
-    nicht automatisch übertragen — Default wird gesetzt, Hinweis in der
-    Konsole, manueller Eingriff aus dem Backup nötig.
-  - **Schreibfehler oder fehlendes Template** sind nicht-fatal: wispy
-    läuft weiter, Konsole zeigt eine Warnung, deine Datei bleibt
-    unangetastet. Dataclass-Defaults greifen wie immer für fehlende
-    Felder.
+- **Automatic migration of the user-side `config.yaml`** at startup.
+  When wispy ships fields the user's existing `config.yaml` does not
+  contain yet, a migration runs:
+  - **Backup** the existing file to `config.yaml.backup` (overwrites
+    on subsequent migrations — most recent state wins).
+  - **Default template** (a copy of the active `config.yaml` shipped
+    inside the bundle) is used as the new base.
+  - **Customised values** from the old file are line-replaced into the
+    new template — dataclass-default vs. user value is compared, every
+    deviation is preserved.
+  - **Comments** in the old `config.yaml` are not preserved (the backup
+    keeps them). Section comments come from the new template.
+  - **Multi-line values** (e.g. block-scalar `initial_prompt`) are not
+    auto-migrated — the template default is used and a console hint
+    asks the user to re-apply manually from the backup.
+  - **Write errors or missing template** are non-fatal: wispy keeps
+    starting, the console shows a warning, the user file is left
+    untouched. Dataclass defaults still cover the missing fields at
+    runtime.
 
 ### Internal
-- `paths.default_config_template_path()` löst den Template-Pfad auf
-  (Frozen: `_internal/config.yaml.default`, Source: `<repo>/config.yaml`).
-- `build.ps1` macht vor PyInstaller eine Kopie `config.yaml.default`,
-  die `wispy.spec` über `datas` ins Bundle packt. Datei ist gitignored.
-- `config.load_config(path, migrate=True)` — der neue `migrate`-Parameter
-  defaultet auf True, Tests können ihn auf False setzen für saubere
-  Isolation.
+- `paths.default_config_template_path()` resolves the template path
+  (frozen: `_internal/config.yaml.default`, source: `<repo>/config.yaml`).
+- `build.ps1` snapshots `config.yaml` -> `config.yaml.default` just
+  before PyInstaller runs, `wispy.spec` includes that file via `datas`.
+  The snapshot file is gitignored.
+- `config.load_config(path, migrate=True)` — the new `migrate`
+  keyword defaults to True; tests can pass `migrate=False` for
+  side-effect-free isolation.
 
 ## [0.4.3] — 2026-05-03
 
-Hotfix für zwei in v0.4.1/v0.4.2 noch enthaltene Probleme.
+Hotfix for two issues that survived in v0.4.1 / v0.4.2.
 
 ### Fixed
-- **CUDA-Treiber wurden trotz Installation nicht gefunden.** In v0.2.0
-  / v0.3.0 lagen die NVIDIA-DLLs in `<app_dir>/_internal/`, einem
-  Verzeichnis, das Windows beim DLL-Loading frozen-PyInstaller-Bundles
-  automatisch durchsucht. Mit dem Plugin-Modell ab v0.4.0 liegen sie in
-  `<cuda_dir>` (Default `<app_dir>/cuda/`), was nicht im Default-
-  Search-Path ist. `os.add_dll_directory()` allein hat nicht gereicht,
-  weil CTranslate2 cuBLAS / cuDNN / cudart als transitive Dependencies
-  über den Standard-Resolver lädt — der respektiert nur `PATH`. wispy
-  prependiert `cuda_dir` jetzt zur Laufzeit an `os.environ["PATH"]`,
-  damit alle DLL-Lookups (auch transitive) das Verzeichnis sehen.
-  Symptom war: `[transcribe] CUDA load failed: Library cublas64_12.dll
-  is not found or cannot be loaded` beim ersten Hotkey-Druck, danach
-  CPU-Fallback. Mit dem Fix nutzt wispy auf NVIDIA-Maschinen wie
-  vorgesehen die GPU.
-- **Modell-Download zeigte keinen Fortschritt.** v0.4.1 hatte
-  `HF_HUB_DISABLE_PROGRESS_BARS=1` gesetzt, um eine kosmetische
-  `Download complete:`-Zeile loszuwerden, die nach `[wispy] Ready!` auf
-  der Konsole landete. Das war zu hart — der User saß fünf Minuten vor
-  schwarzem Output. wispy lässt huggingface_hub jetzt wieder seine
-  tqdm-Bar zeigen. Die kosmetische Final-Zeile nach `Ready!` ist als
-  akzeptabler Trade-off eingeplant.
+- **CUDA libraries not found despite a successful install.** In v0.2.0
+  / v0.3.0 the NVIDIA DLLs lived in `<app_dir>/_internal/`, a directory
+  Windows automatically searches when loading DLLs from a frozen
+  PyInstaller bundle. Plugin-model from v0.4.0 onwards puts them in
+  `<cuda_dir>` (default `<app_dir>/cuda/`), which is *not* on the
+  default search path. `os.add_dll_directory()` alone is not enough —
+  CTranslate2 loads cuBLAS / cuDNN / cudart as transitive dependencies
+  via the standard resolver, which honours `PATH`. wispy now prepends
+  `cuda_dir` to `os.environ["PATH"]` at startup so every DLL lookup
+  (including transitive ones) sees the directory. Symptom was
+  `[transcribe] CUDA load failed: Library cublas64_12.dll is not found
+  or cannot be loaded` on the first hotkey press, followed by the CPU
+  fallback. With the fix wispy uses the GPU on NVIDIA machines as
+  intended.
+- **Model download showed no progress.** v0.4.1 set
+  `HF_HUB_DISABLE_PROGRESS_BARS=1` to drop a cosmetic `Download
+  complete:` line that landed below `[wispy] Ready!`. The trade-off
+  was too harsh — users sat in front of five minutes of silent output.
+  wispy now lets huggingface_hub display its tqdm bar again. The
+  cosmetic trailing line after `Ready!` is accepted as the smaller
+  problem.
 
 ## [0.4.2] — 2026-05-03
 
-Test-Komfort: lokale Bezugsquellen für CUDA-Bundle und Whisper-Modell.
+Test ergonomics: local sources for the CUDA bundle and the Whisper
+model.
 
 ### Added
-- **`cuda_path`** in `config.yaml` — Storage-Choice für die CUDA-Runtime,
-  analog zu `model_path`. Default `null` zeigt auf `<wispy>/cuda/`.
-  Mehrere wispy-Instanzen können sich denselben CUDA-Bundle-Pfad teilen,
-  oder du legst CUDA bewusst außerhalb des wispy-Ordners ab. Der Updater,
-  der Lazy-Installer und das Swap-Skript respektieren den konfigurierten
-  Pfad gleichermaßen.
-- **`model_local_source`** — Pfad zu einem vollständigen lokalen Modell-
-  Verzeichnis. Wenn gesetzt, kopiert wispy beim ersten Start die Dateien
-  von dort statt sie von Hugging Face zu ziehen. Spart bei Test-Iterationen
-  den 1.6-GB-Download.
-- **`cuda_local_source`** — Pfad zu einer `wispy-cuda-*.zip`-Datei oder
-  einem bereits entpackten CUDA-Verzeichnis. Wenn gesetzt, installiert
-  wispy ohne Netzwerk-Zugriff aus dieser Quelle (kein Prompt). Nützlich
-  zum Testen von Pre-Release-CUDA-Bundles oder offline.
+- **`cuda_path`** in `config.yaml` — storage choice for the CUDA
+  runtime, analogous to `model_path`. Default `null` means
+  `<wispy>/cuda/`. Useful when several wispy installs share one CUDA
+  bundle, or when CUDA should live outside the wispy folder. The
+  updater, the lazy installer and the swap helper all respect the
+  configured path.
+- **`model_local_source`** — path to a complete local model directory.
+  When set, wispy copies the files from there at first start instead
+  of pulling from Hugging Face. Saves the 1.6 GB download during test
+  iterations.
+- **`cuda_local_source`** — path to a `wispy-cuda-*.zip` file or to an
+  already extracted CUDA directory. When set, wispy installs from
+  that source without network access (no prompt). Useful for testing
+  pre-release CUDA bundles or working offline.
 
 ### Changed
-- `cuda_loader` API erweitert: `*_at`-Varianten der Helper akzeptieren
-  einen expliziten `cuda_dir`-Pfad (`is_cuda_installed_at`,
+- `cuda_loader` API extended: `*_at` variants of the helpers accept an
+  explicit `cuda_dir` (`is_cuda_installed_at`,
   `find_local_cuda_version_at`, `add_cuda_to_dll_search_path_at`,
-  `install_cuda_bundle(..., cuda_dir=...)`). Die alten Funktionen mit
-  `app_dir`-Parameter bleiben als Wrapper erhalten.
-- `updater.check_for_updates` und `updater.trigger_swap` akzeptieren
-  einen optionalen `cuda_dir`-Parameter, damit der konfigurierte Pfad
-  über den ganzen Update-Pfad hinweg konsistent verwendet wird. Das
-  PowerShell-Swap-Skript schreibt das CUDA-Update an den expliziten
-  Zielpfad, nicht hartcodiert nach `<app_dir>/cuda`.
+  `install_cuda_bundle(..., cuda_dir=...)`). The legacy `app_dir`-based
+  functions stay as wrappers.
+- `updater.check_for_updates` and `updater.trigger_swap` accept an
+  optional `cuda_dir` so the configured path is used consistently
+  across the whole update flow. The PowerShell swap script writes the
+  CUDA update to that explicit target rather than hard-coded
+  `<app_dir>/cuda`.
 
 ## [0.4.1] — 2026-05-03
 
-Hotfix für die in v0.4.0 gefundenen UX- und Stabilitätsprobleme nach dem
-ersten Praxistest.
+Hotfix for the UX and stability issues found in v0.4.0 during the
+first hands-on test.
 
 ### Fixed
-- **`cublas64_12.dll not found` beim ersten Diktat behoben.** v0.4.0
-  konnte unter bestimmten Bedingungen den Transcriber mit `device="auto"`
-  initialisieren, obwohl gar kein CUDA-Bundle vorhanden war — der Crash
-  trat dann erst beim ersten Hotkey-Druck auf. Beim Start wird jetzt
-  zwingend geprüft, ob `<app_dir>/cuda/` existiert und Inhalt hat;
-  wenn nicht, wird der Transcriber direkt auf `device="cpu"` initialisiert.
-- **GPU-Erkennung robuster** — neue dreiwertige Detection
-  (`yes` / `no` / `unknown`). Wenn `nvidia-smi` nicht im PATH liegt oder
-  ein Timeout auftritt, fragt wispy jetzt trotzdem nach, statt stumm
-  auf CPU zu schalten. Vorher konnte eine echte NVIDIA-Karte unentdeckt
-  bleiben und der CUDA-Prompt entfiel.
-- **Zusätzlicher Runtime-Fallback in `transcribe.py`** — selbst wenn
-  CTranslate2 die CUDA-Libraries erst beim Inference lädt und dort
-  scheitert, baut wispy das Modell intern auf CPU neu und erledigt das
-  Diktat. Kein harter Crash mehr während eines Hotkey-Drucks.
+- **`cublas64_12.dll not found` on first dictation.** v0.4.0 could end
+  up initialising the Transcriber with `device="auto"` even when no
+  CUDA bundle was present — the crash then only surfaced on the first
+  hotkey press. The startup path now always checks whether
+  `<app_dir>/cuda/` exists and contains DLLs; if not, the Transcriber
+  is forced to `device="cpu"`.
+- **GPU detection more robust** — new tri-state probe
+  (`yes` / `no` / `unknown`). When `nvidia-smi` is missing on PATH or
+  times out, wispy now still asks instead of silently defaulting to
+  CPU. The previous behaviour could leave a real NVIDIA card
+  undetected and skip the CUDA prompt.
+- **Additional runtime fallback in `transcribe.py`** — even when
+  CTranslate2 only loads its CUDA libraries lazily on the first
+  inference and fails there, wispy now rebuilds the model on CPU
+  internally and completes the transcription. No more hard crash
+  during a hotkey press.
 
 ### Changed
-- **Kein Self-Restart mehr nach CUDA-Download.** Nach erfolgreicher
-  Installation des CUDA-Bundles läuft wispy direkt im selben Prozess
-  weiter — der Modell-Download und alles weitere passieren nahtlos
-  ohne erneuten Programmstart.
-- **Konsole nach `Ready!` aufgeräumt.** Die `Download complete: …`-
-  Zeile von `huggingface_hub` taucht jetzt nicht mehr nach dem
-  `[wispy] Ready!`-Banner auf. wispy setzt
-  `HF_HUB_DISABLE_PROGRESS_BARS=1` und gibt eigene, klare
-  Status-Meldungen für den Modell-Download.
+- **No self-restart after the CUDA download.** After a successful CUDA
+  install wispy keeps running in the same process — the model
+  download and the rest of startup happen seamlessly without a
+  second program launch.
+- **Console cleaned up after `Ready!`.** The `Download complete: …`
+  line from `huggingface_hub` no longer trails past
+  `[wispy] Ready!`. wispy sets `HF_HUB_DISABLE_PROGRESS_BARS=1` and
+  emits its own concise status messages for the model download.
 
 ## [0.4.0] — 2026-05-03
 
 ### Changed
-- **Plugin-/Component-Bundle-Architektur** — die Anwendung und die
-  CUDA-Runtime werden jetzt als zwei unabhängig versionierte
-  Release-Artefakte ausgeliefert: das App-Bundle (`wispy-vX.Y.Z.zip`,
-  ~400 MB) und das CUDA-Bundle (`wispy-cuda-vX.Y.Z.zip`, ~1.5 GB). Vorher
-  enthielt das App-Bundle die CUDA-DLLs direkt und war ~2 GB groß.
-- **Default-Modus auf CPU** — `device: "auto"` ist neuer Default. Auf
-  Systemen ohne NVIDIA-Karte läuft wispy direkt auf CPU. Auf Systemen
-  mit NVIDIA-Karte fragt wispy beim ersten Start einmalig, ob das
-  CUDA-Bundle nachgeladen werden soll.
+- **Plugin-/component-bundle architecture** — the application and the
+  CUDA runtime are now shipped as two independently versioned release
+  artefacts: the app bundle (`wispy-vX.Y.Z.zip`, ~400 MB) and the
+  CUDA bundle (`wispy-cuda-vX.Y.Z.zip`, ~1.5 GB). Previously the app
+  bundle contained the CUDA DLLs directly and was ~2 GB.
+- **Default mode is CPU** — `device: "auto"` is the new default. On
+  systems without a NVIDIA card wispy runs straight on CPU. On systems
+  with a NVIDIA card wispy asks once at first start whether to fetch
+  the CUDA bundle.
 
 ### Added
-- **Lazy-CUDA-Loading** — beim ersten Start mit erkannter NVIDIA-GPU
-  bietet wispy in der Konsole an, das passende CUDA-Bundle aus den
-  GitHub Releases zu laden. Bei Bestätigung wird das Bundle nach
-  `<app_dir>/cuda/` extrahiert; bei Ablehnung läuft wispy auf CPU
-  weiter.
-- **Dual-Stream Updater** — der Update-Check prüft den App-Stream
-  (`vX.Y.Z`) und den CUDA-Stream (`cuda-vX.Y.Z`) unabhängig. Eine
-  reine App-Aktualisierung lässt das lokale CUDA-Bundle unangetastet
-  und umgekehrt.
-- **Drei Konfigurationsstufen für Updates** in `config.yaml`:
-  - `update_check: false` — kein Check, kein Prompt.
-  - `update_check: true, auto_update: false` — checken und nachfragen
-    (neuer Default).
-  - `update_check: true, auto_update: true` — silent updaten und neu
-    starten.
-- **Selbst-Neustart nach Update** — nach einem erfolgreichen Swap
-  startet wispy automatisch in der neuen Version, ohne dass die
-  Anwendung erneut von Hand gestartet werden muss.
-- **Download-Fortschrittsanzeige** — bei App- und CUDA-Downloads zeigt
-  wispy fortlaufend Fortschritt, Geschwindigkeit und ETA in der
-  Konsole.
-- **Robuster CPU-Fallback in `transcribe.py`** — falls CUDA während der
-  Modell-Ladephase fehlschlägt, fällt wispy automatisch auf CPU
-  (`int8`) zurück und gibt einen klaren Hinweis aus.
+- **Lazy CUDA loading** — at first start with a detected NVIDIA GPU
+  wispy offers (in the console) to download the matching CUDA bundle
+  from GitHub Releases. On confirmation the bundle is extracted into
+  `<app_dir>/cuda/`; on decline wispy continues on CPU.
+- **Dual-stream updater** — the update check queries the app stream
+  (`vX.Y.Z`) and the CUDA stream (`cuda-vX.Y.Z`) independently. An
+  app-only update leaves the local CUDA bundle untouched and vice
+  versa.
+- **Three update tiers** in `config.yaml`:
+  - `update_check: false` — no check, no prompt.
+  - `update_check: true, auto_update: false` — check and prompt
+    (new default).
+  - `update_check: true, auto_update: true` — silent update plus
+    restart.
+- **Self-restart after update** — after a successful swap wispy
+  restarts itself in the new version; no manual launch needed.
+- **Download progress** — for both app and CUDA downloads wispy
+  shows continuous progress, throughput and ETA in the console.
+- **Robust CPU fallback in `transcribe.py`** — if CUDA fails during
+  the model load phase, wispy automatically falls back to CPU
+  (`int8`) and prints a clear notice.
 
 ### Fixed
-- Ein App-Update überschreibt das lokale CUDA-Bundle nicht mehr —
-  `cuda/` ist jetzt explizit in der Swap-Whitelist (zusätzlich zu
-  `config.yaml`, `models/` und `hotwords.txt`).
+- An app update no longer overwrites the local CUDA bundle —
+  `cuda/` is now explicitly on the swap whitelist (alongside
+  `config.yaml`, `models/` and `hotwords.txt`).
 
 ### Removed
-- **CUDA-DLLs aus dem App-Bundle**. Sie sind ab v0.4.0 nur noch im
-  separaten CUDA-Bundle enthalten. Wer von v0.3.0 kommt und auf einer
-  NVIDIA-Maschine läuft, wird beim ersten Start mit v0.4.0 einmalig
-  gefragt, ob das CUDA-Bundle nachgeladen werden soll.
+- **CUDA DLLs are no longer part of the app bundle.** From v0.4.0
+  onwards they live in the separate CUDA bundle. Anyone coming from
+  v0.3.0 on a NVIDIA machine is asked once at first start whether to
+  fetch the CUDA bundle.
 
 ### Migration
 
-Wer von **v0.3.0** kommt:
+Coming from **v0.3.0**:
 
-- Update läuft normal über den eingebauten Updater (Konsole zeigt
+- The update flows through the built-in updater (the console reads
   "App update available: v0.3.0 -> v0.4.0").
-- Beim ersten Start nach dem Update fragt wispy nach dem CUDA-Bundle
-  (nur auf Maschinen mit NVIDIA-Karte). `[y]` lädt es nach,
-  `[n]`/Enter überspringt — wispy läuft dann auf CPU.
-- Persönliche `config.yaml` bleibt erhalten. Der frühere Wert
-  `device: "cuda"` führt nach dem Update zu einem expliziten
-  CUDA-Versuch; falls die Bibliotheken nicht (mehr) vorhanden sind,
-  fällt wispy automatisch auf CPU zurück.
+- At first start after the update wispy asks about the CUDA bundle
+  (only on machines with a NVIDIA card). `[y]` fetches it, `[n]` /
+  Enter skips and wispy runs on CPU.
+- Personal `config.yaml` is preserved. An old `device: "cuda"` value
+  produces an explicit CUDA attempt after the update; if the
+  libraries are not (yet) present, wispy falls back to CPU
+  automatically.
 
 ## [0.3.0] — 2026-05-02
 
@@ -226,30 +236,30 @@ Wer von **v0.3.0** kommt:
 
 ## [0.2.0] — 2026-04-13
 
-Erstes öffentliches Release. Vor diesem Punkt war das Repo intern.
+First public release. Before this point the repository was internal.
 
 ### Added
-- **Push-to-Talk-Diktat** unter Windows mit globalem Hotkey
-  (Default `F9`, konfigurierbar). Hold-Modus (drücken & halten)
-  und Toggle-Modus (drücken zum Starten/Stoppen).
-- **Lokale Whisper-Transkription** über
-  `faster-whisper` + CTranslate2 mit `large-v3-turbo`. CUDA-DLLs
-  damals direkt im PyInstaller-Bundle (`_internal/`) gepackt.
-- **Whisper-Modell-Erstdownload** beim ersten Start
-  (~1.6 GB nach `<wispy>/models/`, danach Offline).
-- **Clipboard-Paste-Output** statt Tastatur-Simulation —
-  Unicode-sicher und schnell, ursprünglicher Clipboard-Inhalt
-  wird optional wiederhergestellt.
-- **Auto-Elevation** via UAC: das `keyboard`-Hook braucht
-  Admin-Rechte, wispy fordert sie selbst an.
-- **PyInstaller-One-Folder-Build** über `build/build.ps1` mit
-  `uv` als Python-Manager. Output ist ein portables
-  `dist/wispy/`-Verzeichnis mit `wispy.exe` + `_internal/`.
-- **YAML-basierte Konfiguration** (`config.yaml` neben
-  `wispy.exe`): Modell, Hotkey, Sprache, Audio-Device,
-  Beam-Size, Initial-Prompt, Clipboard-Restore.
-- **Deutsch** als Default-Sprache (`language: de`).
+- **Push-to-talk dictation** on Windows with a global hotkey
+  (default `F9`, configurable). Hold mode (press-and-hold) and
+  toggle mode (press to start, press again to stop).
+- **Local Whisper transcription** via `faster-whisper` + CTranslate2
+  with `large-v3-turbo`. CUDA DLLs were bundled directly into the
+  PyInstaller bundle (`_internal/`) at this point.
+- **First-run Whisper model download** at startup (~1.6 GB into
+  `<wispy>/models/`, cached afterwards).
+- **Clipboard-paste output** instead of keyboard simulation — Unicode
+  safe, fast, the previous clipboard contents are optionally restored.
+- **Auto elevation** via UAC: the `keyboard` hook needs admin rights,
+  wispy requests them itself.
+- **PyInstaller one-folder build** via `build/build.ps1` with `uv` as
+  the Python manager. Output is a portable `dist/wispy/` directory
+  with `wispy.exe` + `_internal/`.
+- **YAML-based configuration** (`config.yaml` next to `wispy.exe`):
+  model, hotkey, language, audio device, beam size, initial prompt,
+  clipboard restore.
+- **German** as the default language (`language: de`).
 
+[0.4.5]: https://github.com/mka-codelake/wispy/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/mka-codelake/wispy/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/mka-codelake/wispy/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/mka-codelake/wispy/compare/v0.4.1...v0.4.2

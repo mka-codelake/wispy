@@ -52,45 +52,57 @@ The canonical version lives **exclusively** in `pyproject.toml` (`version = "X.Y
 `src/wispy/__init__.py` derives `__version__` from it at runtime via `importlib.metadata`.
 Tag schema: `vX.Y.Z` (with "v" prefix).
 
-### Kanonischer Weg: Tag-Push → GitHub Actions (empfohlen)
+### Canonical path: tag push → GitHub Actions (recommended)
 
-1. **Version bumpen** in `pyproject.toml`:
+1. **Bump the version** in `pyproject.toml`:
    ```toml
    version = "0.3.0"
    ```
 
-2. **Commit** des Version-Bumps:
+2. **Add a CHANGELOG entry.** Append a `## [0.3.0] — YYYY-MM-DD`
+   block to `CHANGELOG.md` with the user-facing changes (Added /
+   Changed / Fixed / Removed sections). The Release workflow extracts
+   this block via `build/extract_release_notes.py` and uses it as the
+   GitHub Release body — without the block the workflow fails fast.
+
+3. **Commit** the version bump + changelog:
    ```powershell
-   git add pyproject.toml
-   git commit -m "chore: bump version to 0.3.0"
+   git add pyproject.toml CHANGELOG.md
+   git commit -m "chore(release): prepare v0.3.0"
    ```
 
-3. **Tag setzen und pushen** — CI übernimmt den Rest:
+4. **Tag and push** — CI handles the rest:
    ```powershell
    git tag v0.3.0
    git push origin main --tags
    ```
 
-Der Workflow `.github/workflows/release.yml` prüft automatisch, dass Tag und `pyproject.toml`-Version übereinstimmen, baut das portable Bundle auf `windows-latest` via `build/build.ps1 -CreateZip` und veröffentlicht `wispy-v0.3.0.zip` als GitHub-Release-Asset mit automatisch generierten Release Notes.
+The `.github/workflows/release.yml` workflow automatically checks that
+the tag matches `pyproject.toml`, builds the portable bundle on
+`windows-latest` via `build/build.ps1 -CreateZip`, extracts the
+matching CHANGELOG section as the release body, and publishes
+`wispy-v0.3.0.zip` as the GitHub Release asset.
 
-### Manueller Fallback (falls CI nicht verfügbar)
+### Manual fallback (when CI is unavailable)
 
-> Erfordert eine Windows-Maschine mit `uv`, CUDA 12.x und `gh` installiert.
+> Requires a Windows machine with `uv`, CUDA 12.x and `gh` installed.
 
-Nach Schritt 3 oben:
+After step 4 above:
 
-4. **Bundle bauen und ZIP erstellen**:
+5. **Build the bundle and ZIP**:
    ```powershell
    .\build\build.ps1 -CreateZip
    ```
-   Erzeugt `dist\wispy-v0.3.0.zip` (Version wird automatisch aus `pyproject.toml` gelesen).
+   Produces `dist\wispy-v0.3.0.zip` (version is read from `pyproject.toml`).
 
-5. **GitHub Release erstellen** und ZIP anhängen:
+6. **Create the GitHub Release** and attach the ZIP:
    ```powershell
    gh release create v0.3.0 dist\wispy-v0.3.0.zip `
        --title "wispy v0.3.0" `
-       --notes "Brief description of what changed."
+       --notes-file release-notes.md
    ```
+   (Generate `release-notes.md` first via
+   `python build\extract_release_notes.py --tag v0.3.0 --output release-notes.md`.)
 
 ## Code of Conduct
 

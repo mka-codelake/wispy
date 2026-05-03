@@ -1,88 +1,117 @@
 wispy -- portable push-to-talk dictation for Windows
 =====================================================
 
-Voraussetzungen
----------------
-  * Windows 10 oder 11 (x64)
-  * NVIDIA-GPU mit aktuellem Grafiktreiber
-      Check: In einer PowerShell "nvidia-smi" eingeben. Wenn ein Tableau
-      mit deiner GPU erscheint, ist der Treiber da. Sonst den aktuellen
-      GeForce- oder Studio-Treiber von
+Requirements
+------------
+  * Windows 10 or 11 (x64)
+  * NVIDIA GPU is optional; without one wispy runs on CPU.
+      Check: open PowerShell and run "nvidia-smi". If it lists your GPU,
+      the driver is in place. If you have a NVIDIA card without a driver,
+      install a current GeForce or Studio driver from
           https://www.nvidia.com/Download/index.aspx
-      installieren.
-  * Mikrofon-Berechtigung fuer Desktop-Apps
-      Einstellungen -> Datenschutz -> Mikrofon -> Desktop-Apps zulassen
-  * ca. 4 GB freier Festplattenplatz
-  * Beim allerersten Start einmalig Internet
-      (~1.6 GB Whisper-Modell-Download)
+      first. wispy itself fetches the matching CUDA runtime DLLs on demand
+      at first start (no system-wide CUDA toolkit needed).
+  * Microphone permission for desktop apps
+      Settings -> Privacy -> Microphone -> Allow desktop apps
+  * ~4 GB free disk space
+  * Internet connection at first start
+      (one-time ~1.6 GB Whisper model download, plus optional ~1.5 GB
+       CUDA bundle on NVIDIA machines)
 
 Installation
 ------------
-  1. ZIP in einen beliebigen Ordner auspacken, z.B.
+  1. Extract the ZIP into any folder, e.g.
          C:\Tools\wispy
-     Kein Installer noetig. Kein Eintrag in der Registry.
-  2. Optional config.yaml oeffnen und Einstellungen anpassen
-     (Hotkey, Sprache, ...).
-  3. Doppelklick auf wispy.exe
-  4. Beim ersten Start:
-       - UAC-Prompt bestaetigen (fuer den globalen Hotkey-Hook)
-       - wispy laedt einmalig das Whisper-Modell (~1.6 GB) nach
-             <wispy-ordner>\models\large-v3-turbo\
-       - Danach meldet wispy "Model ready." und ist einsatzbereit.
+     No installer needed. Nothing is written to the registry.
+  2. Optionally open config.yaml and adjust settings
+     (hotkey, language, ...).
+  3. Double-click wispy.exe
+  4. At the first start:
+       - Confirm the UAC prompt (needed for the global hotkey hook).
+       - On a NVIDIA machine wispy asks once whether to download the
+         CUDA runtime (~1.5 GB into <wispy-folder>\cuda\).
+         Decline -> wispy runs on CPU.
+       - wispy then fetches the Whisper model (~1.6 GB into
+         <wispy-folder>\models\large-v3-turbo\).
+       - After "Model ready." wispy is ready to dictate.
 
-Bedienung
----------
-  * Hotkey HALTEN (Standard: F9) -> Beep 800 Hz -> jetzt sprechen
-  * Hotkey LOSLASSEN              -> Beep 400 Hz -> Text erscheint am
-                                      aktuellen Cursor (via Clipboard-Paste)
-  * Zu kurz gedrueckt (< 0.3 s)   -> wird ignoriert
-  * wispy beenden                 -> Strg+C in der Konsole oder Fenster
-                                      schliessen
+Usage
+-----
+  * HOLD the hotkey (default: F9) -> beep 800 Hz -> speak now
+  * RELEASE the hotkey            -> beep 400 Hz -> text appears at
+                                       the current cursor via clipboard
+                                       paste
+  * Press < 0.3 s                 -> ignored
+  * Quit wispy                    -> Ctrl+C in the console, or close
+                                       the window
 
-Konfiguration
+Configuration
 -------------
-Alle Einstellungen liegen in config.yaml direkt neben wispy.exe:
+All settings live in config.yaml right next to wispy.exe:
 
-  hotkey          F9, F12, "ctrl+space", ... beliebige Taste
-  record_mode     "hold" (halten) oder "toggle" (einmal druecken)
-  language        "de", "en", "fr", ...
-  model_name      "large-v3-turbo" (Standard)
-  model_path      null = Default <wispy>\models\<model_name>
-                  oder absoluter Pfad zu einem eigenen Modell-Ordner
-  device          "cuda" (v1: nur GPU)
-  compute_type    "float16"
+  hotkey          F9, F12, "ctrl+space", ... any key combo
+  record_mode     "hold" (push-to-talk) or "toggle" (press to start,
+                  press again to stop)
+  language        "de", "en", "fr", ... ISO 639-1 code
+  model_name      "large-v3-turbo" (default)
+  model_path      null = use the default <wispy>\models\<model_name>
+                  or an absolute path to a custom model folder
+  cuda_path       null = use the default <wispy>\cuda
+                  or an absolute path to a shared CUDA folder
+  device          "auto" (default), "cuda" or "cpu"
+  compute_type    "default" (best precision per device), "float16",
+                  "int8_float16", "int8"
+  update_check    true / false  (look for new versions on startup)
+  auto_update     false (default, ask before applying) / true (silent)
 
-Nach Aenderungen an config.yaml wispy neu starten.
+After changes to config.yaml, restart wispy.
 
-Verschieben / Kopieren / USB-Stick
-----------------------------------
-Der gesamte wispy-Ordner ist portable. Du kannst ihn:
-  * an einen anderen Pfad verschieben
-  * auf einen USB-Stick kopieren
-  * an einem anderen Windows-Rechner mit NVIDIA-GPU auspacken
-und wispy laeuft dort sofort weiter. Das bereits heruntergeladene
-Modell wandert im Ordner mit, ein erneuter Download findet nicht statt.
+Move / copy / USB stick
+-----------------------
+The whole wispy folder is portable. You can:
+  * move it to another path,
+  * copy it to a USB stick,
+  * extract it on another Windows machine.
+wispy continues to run there. The already downloaded model and CUDA
+bundle move with the folder; no re-download happens.
 
-Deinstallation
+Uninstallation
 --------------
-Den wispy-Ordner einfach loeschen. Fertig. wispy schreibt nichts in
-die Registry und legt keine Dateien ausserhalb seines eigenen Ordners
-ab.
+Delete the wispy folder. Done. wispy writes nothing to the registry
+and never creates files outside its own folder.
 
-Bei Problemen
--------------
-wispy gibt bei jedem Start aus, welche Pfade es effektiv verwendet:
+Updates
+-------
+wispy checks for updates on startup against this repository's GitHub
+Releases. Three configuration tiers control the behaviour:
+
+  update_check: false                       no check, no prompt
+  update_check: true, auto_update: false    check + ask "[y/N]"  (default)
+  update_check: true, auto_update: true     check + apply silently + restart
+
+Updates run as next-boot swaps:
+  1. wispy downloads the new app bundle (and the CUDA bundle if a newer
+     one is available).
+  2. wispy exits, a small PowerShell helper swaps the files,
+     wispy restarts itself in the new version.
+  3. Your config.yaml, models/, hotwords.txt and cuda/ are protected by
+     a hard whitelist and are never overwritten.
+
+If problems occur
+-----------------
+wispy prints the effective paths it uses on every startup:
     [wispy] app_dir    = ...
     [wispy] config     = ...
     [wispy] model_path = ...
-Fehler (fehlendes Modell, CUDA-Probleme, ...) werden mit klaren
-Hinweisen auf der Konsole gemeldet. Die Konsole bitte offen lassen,
-bevor du ein Problem meldest.
+Errors (missing model, CUDA problems, ...) are reported with clear
+hints on the console. Please leave the console open before reporting
+an issue.
 
-GPU / CUDA-Details
+GPU / CUDA details
 ------------------
-wispy bringt seinen eigenen CUDA-Runtime-Stack im Ordner _internal\
-mit (cublas64_12.dll, cudnn_*.dll, cudart64_12.dll). Du brauchst
-KEIN systemweit installiertes CUDA Toolkit. Nur der NVIDIA-Treiber
-muss vorhanden sein, weil er das Kernel-Modul und nvcuda.dll liefert,
-die nicht aus einem Anwendungsordner geladen werden koennen.
+wispy ships without CUDA libraries by default. On a NVIDIA machine the
+matching cuBLAS / cuDNN / cudart DLLs are downloaded on demand at first
+start into <wispy-folder>\cuda\. You do NOT need a system-wide CUDA
+toolkit. Only the NVIDIA driver itself must be present, because it
+provides the kernel module and nvcuda.dll, which cannot be loaded from
+an application folder.
