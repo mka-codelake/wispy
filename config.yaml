@@ -1,19 +1,40 @@
 # wispy configuration -- edit and restart wispy to apply changes.
 
-# --- Model --------------------------------------------------------------
-# Name of the Whisper model. Used for the default model directory:
-#   <wispy-folder>/models/<model_name>/
-model_name: "large-v3-turbo"
+# =======================================================================
+# Model
+# =======================================================================
 
-# Optional absolute or relative path to a local model directory.
-# null  = use the default <wispy-folder>/models/<model_name>
-# Set this only if you keep models somewhere else on disk.
-model_path: null
+# Name of the Whisper model. Used as the default subdirectory name
+# under <wispy>/models/<model_name>/.
+model_name: "large-v3-turbo"
 
 # Hugging Face repo ID used for the one-time first-run download.
 model_hub_id: "dropbox-dash/faster-whisper-large-v3-turbo"
 
-# --- Compute ------------------------------------------------------------
+# Storage path: where the model lives on disk.
+#   null  = <wispy>/models/<model_name>/  (default)
+#   value = absolute or relative path to use instead
+# Useful when several wispy installs share one model on disk, or to
+# keep the model on a different drive.
+#   model_path: "D:\\shared\\whisper-models\\large-v3-turbo"
+model_path: null
+
+# =======================================================================
+# CUDA runtime
+# =======================================================================
+
+# Storage path: where the CUDA runtime DLLs live once installed.
+#   null  = <wispy>/cuda/  (default)
+#   value = absolute or relative path to use instead
+# Useful when several wispy installs share one CUDA bundle, or to keep
+# CUDA off the wispy folder for backup convenience.
+#   cuda_path: "D:\\shared\\wispy-cuda"
+cuda_path: null
+
+# =======================================================================
+# Compute
+# =======================================================================
+
 # device:
 #   "auto" (default) - use NVIDIA GPU when CUDA libs are present, else CPU
 #   "cuda"           - force GPU; fails to start without the cuda/ bundle
@@ -25,25 +46,59 @@ device: "auto"
 #   "float16" / "int8_float16" / "int8" - explicit override
 compute_type: "default"
 
-# --- Language -----------------------------------------------------------
-language: "de"            # ISO code, e.g. "de", "en", "fr"
+# =======================================================================
+# Language
+# =======================================================================
 
-# --- Audio --------------------------------------------------------------
+# ISO 639-1 language code, e.g. "de", "en", "fr".
+language: "de"
+
+# =======================================================================
+# Audio
+# =======================================================================
+
 sample_rate: 16000
-audio_device: null        # null = default microphone, or integer index
 
-# --- Hotkey -------------------------------------------------------------
-hotkey: "F9"              # e.g. "F9", "F12", "ctrl+space"
-record_mode: "hold"       # "hold" (push-to-talk) or "toggle"
+# Audio input device:
+#   null    = OS default microphone
+#   integer = explicit device index
+audio_device: null
 
-# --- Transcription ------------------------------------------------------
+# =======================================================================
+# Hotkey
+# =======================================================================
+
+# Hotkey combo, e.g. "F9", "F12", "ctrl+space".
+hotkey: "F9"
+
+# Recording mode:
+#   "hold"   = press-to-talk (default), release to stop
+#   "toggle" = press once to start, press again to stop
+record_mode: "hold"
+
+# =======================================================================
+# Transcription
+# =======================================================================
+
 beam_size: 5
+
+# Optional priming text Whisper sees before each transcription.
+# Empty string disables priming.
 initial_prompt: ""
 
-# --- Output -------------------------------------------------------------
-restore_clipboard: true   # Restore previous clipboard after pasting
+# =======================================================================
+# Output
+# =======================================================================
 
-# --- Updates ------------------------------------------------------------
+# After pasting transcribed text via Ctrl+V, restore whatever was on the
+# clipboard before. true (default) = restore, false = leave wispy's
+# transcribed text on the clipboard.
+restore_clipboard: true
+
+# =======================================================================
+# Updates
+# =======================================================================
+
 # Three tiers of update behaviour:
 #   update_check: false                       no check, no prompt, you handle updates manually
 #   update_check: true,  auto_update: false   check + ask "[y/N]" before applying  (default)
@@ -51,24 +106,22 @@ restore_clipboard: true   # Restore previous clipboard after pasting
 update_check: true
 auto_update: false
 
-# --- CUDA storage -------------------------------------------------------
-# Where the lazy-loaded CUDA runtime DLLs live once installed.
-#   null = <wispy-folder>/cuda/
-#   absolute or relative path = use that location instead. Useful when
-#   several wispy installs share one CUDA bundle, or to keep the bundle
-#   off the wispy folder for backup convenience.
-cuda_path: null
-
-# --- Local test sources -------------------------------------------------
+# =======================================================================
+# Local sources (advanced / for testing)
+# =======================================================================
 # When set, wispy uses these local artefacts instead of downloading from
 # Hugging Face / GitHub Releases. Aimed at offline testing and at avoiding
 # repeated multi-GB downloads during development. null = normal network.
-#
-# model_local_source: directory that contains a complete Whisper model
-#   (config.json, model.bin, preprocessor_config.json, tokenizer.json,
-#   vocabulary.json). Will be copied into the resolved model_path.
-# cuda_local_source: either a wispy-cuda-vX.Y.Z.zip file or an already
-#   extracted directory containing cublas64_12.dll, cudnn_*.dll, ... and
-#   a _version.txt marker. Will be installed into the resolved cuda_path.
+
+# Path to a directory that already contains a complete Whisper model
+# (config.json, model.bin, preprocessor_config.json, tokenizer.json,
+# vocabulary.json). Will be copied into the resolved model_path.
+#   model_local_source: "D:\\test-cache\\large-v3-turbo"
 model_local_source: null
+
+# Path to a wispy-cuda-vX.Y.Z.zip file OR an already-extracted directory
+# with cublas64_12.dll, cudnn_*.dll, cudart64_12.dll and a _version.txt
+# marker. Will be installed into the resolved cuda_path.
+#   cuda_local_source: "D:\\test-cache\\wispy-cuda-v12.9.1.zip"
+#   cuda_local_source: "D:\\test-cache\\cuda"
 cuda_local_source: null

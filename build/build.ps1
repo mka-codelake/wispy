@@ -74,6 +74,13 @@ Write-Host "[build] Installing wispy (editable) and runtime dependencies ..." -F
 Write-Host "[build] Installing PyInstaller ..." -ForegroundColor Yellow
 & uv pip install --python $VenvPython pyinstaller
 
+# Snapshot the active config.yaml as a default template that wispy ships
+# inside the bundle. The runtime uses it to migrate older user-side
+# config.yaml files when new fields land in newer wispy versions.
+Write-Host "[build] Snapshotting config.yaml as config.yaml.default for in-bundle template ..." -ForegroundColor Yellow
+Copy-Item (Join-Path $RepoRoot "config.yaml") `
+          (Join-Path $RepoRoot "config.yaml.default") -Force
+
 # --- 6. Clean previous build ------------------------------------------------
 if (Test-Path $BundleDir) {
     Write-Host "[build] Removing previous bundle at $BundleDir" -ForegroundColor DarkGray

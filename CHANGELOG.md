@@ -5,6 +5,50 @@ All notable changes to wispy will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.4] — 2026-05-03
+
+config.yaml-Politur und automatische Migration für ältere config.yaml-Dateien.
+
+### Changed
+- **`config.yaml` neu sortiert und konsistent kommentiert.** Pfad-Felder
+  liegen jetzt direkt bei ihrem Funktionsblock (`model_path` bei Model,
+  `cuda_path` bei CUDA), die Test-Bootstrap-Felder
+  (`model_local_source`, `cuda_local_source`) sind in einer eigenen
+  Sektion „Local sources (advanced / for testing)" gebündelt. Jeder
+  Pfad-Feld hat jetzt einen 3–4-zeiligen Erklärungsblock plus
+  auskommentiertes Beispiel — gleiche Tiefe wie das bisherige
+  `model_path`. Sektion-Header sind durch `# ===`-Linien sichtbarer.
+
+### Added
+- **Automatische Migration der user-side `config.yaml`** beim Start.
+  Wenn wispy in einer neueren Version Felder kennt, die deine bestehende
+  `config.yaml` noch nicht hat, läuft beim Start eine Migration:
+  - **Backup** der bestehenden Datei nach `config.yaml.backup`
+    (überschreibt bei mehrfacher Migration — letzter Stand zählt).
+  - **Default-Template** (eine im Bundle mitgelieferte Kopie der
+    aktuellen `config.yaml`) wird als neue Basis verwendet.
+  - **Deine angepassten Werte** werden per Line-Replace ins neue
+    Template übernommen — Dataclass-Default vs. dein Wert wird verglichen,
+    Abweichungen werden erhalten.
+  - **Kommentare** in deiner alten `config.yaml` gehen verloren (Backup
+    bleibt). Die Sektion-Kommentare aus dem neuen Template ersetzen sie.
+  - **Multi-line Werte** (z.B. mehrzeiliger `initial_prompt`) werden
+    nicht automatisch übertragen — Default wird gesetzt, Hinweis in der
+    Konsole, manueller Eingriff aus dem Backup nötig.
+  - **Schreibfehler oder fehlendes Template** sind nicht-fatal: wispy
+    läuft weiter, Konsole zeigt eine Warnung, deine Datei bleibt
+    unangetastet. Dataclass-Defaults greifen wie immer für fehlende
+    Felder.
+
+### Internal
+- `paths.default_config_template_path()` löst den Template-Pfad auf
+  (Frozen: `_internal/config.yaml.default`, Source: `<repo>/config.yaml`).
+- `build.ps1` macht vor PyInstaller eine Kopie `config.yaml.default`,
+  die `wispy.spec` über `datas` ins Bundle packt. Datei ist gitignored.
+- `config.load_config(path, migrate=True)` — der neue `migrate`-Parameter
+  defaultet auf True, Tests können ihn auf False setzen für saubere
+  Isolation.
+
 ## [0.4.3] — 2026-05-03
 
 Hotfix für zwei in v0.4.1/v0.4.2 noch enthaltene Probleme.
@@ -206,6 +250,7 @@ Erstes öffentliches Release. Vor diesem Punkt war das Repo intern.
   Beam-Size, Initial-Prompt, Clipboard-Restore.
 - **Deutsch** als Default-Sprache (`language: de`).
 
+[0.4.4]: https://github.com/mka-codelake/wispy/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/mka-codelake/wispy/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/mka-codelake/wispy/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/mka-codelake/wispy/compare/v0.4.0...v0.4.1

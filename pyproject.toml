@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wispy"
-version = "0.4.3"
+version = "0.4.4"
 description = "Minimal local push-to-talk dictation tool for Windows"
 readme = "README.md"
 license = "GPL-3.0-or-later"

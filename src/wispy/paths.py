@@ -70,6 +70,36 @@ def missing_model_files(model_dir: Path) -> list:
     return [name for name in REQUIRED_MODEL_FILES if not (model_dir / name).is_file()]
 
 
+def default_config_template_path() -> Optional[Path]:
+    """Return the location of the config.yaml template shipped with wispy.
+
+    The template is the source-of-truth default `config.yaml` and is used
+    by the runtime migration step (see ``config._migrate_config_yaml_if_needed``)
+    to backfill new fields into a user-side config.yaml after an update.
+
+    Resolution:
+    - **Frozen build** (PyInstaller): ``<exe_dir>/_internal/config.yaml.default``,
+      written by build.ps1 right before PyInstaller runs and pulled into the
+      bundle via wispy.spec's datas.
+    - **Source run**: ``<repo_root>/config.yaml`` itself — the same file the
+      build snapshots, just under its primary name.
+
+    Returns the absolute path if it exists, ``None`` otherwise.
+    """
+    if getattr(sys, "frozen", False):
+        # PyInstaller One-Folder: _internal/ sits next to the .exe.
+        internal = Path(sys.executable).resolve().parent / "_internal"
+        for candidate in ("config.yaml.default", "config.yaml"):
+            template = internal / candidate
+            if template.is_file():
+                return template
+        return None
+
+    # Source run: use the repository's own config.yaml as the template.
+    template = Path(__file__).resolve().parents[2] / "config.yaml"
+    return template if template.is_file() else None
+
+
 def get_vocabulary_path() -> Path:
     """Return the path to hotwords.txt next to config.yaml (app_dir)."""
     return get_app_dir() / "hotwords.txt"

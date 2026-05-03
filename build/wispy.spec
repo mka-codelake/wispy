@@ -36,7 +36,12 @@ a = Analysis(
     [str(ROOT / "src" / "wispy" / "__main__.py")],
     pathex=[str(ROOT / "src")],
     binaries=ct2_binaries + fw_binaries,
-    datas=ct2_datas + fw_datas,
+    datas=ct2_datas + fw_datas + [
+        # Ship a copy of the default config.yaml as a template so wispy can
+        # migrate user-side config.yaml files when new fields land. Created
+        # by build.ps1 just before PyInstaller runs.
+        (str(ROOT / "config.yaml.default"), "."),
+    ],
     hiddenimports=[
         "wispy",
         "wispy.main",
