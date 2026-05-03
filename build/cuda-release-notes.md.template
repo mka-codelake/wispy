@@ -1,0 +1,22 @@
+NVIDIA CUDA runtime bundle for wispy.
+
+This release does not contain wispy itself — it is the CUDA-{VERSION}
+runtime (cuBLAS, cuDNN, cuda-runtime DLLs) that wispy lazy-loads on
+machines with an NVIDIA GPU.
+
+You normally do not download this file by hand. wispy fetches it
+automatically when you start the application on a NVIDIA system and
+answer `y` to the CUDA-runtime prompt.
+
+### Contents
+- `cuda/cublas64_12.dll`
+- `cuda/cublasLt64_12.dll`
+- `cuda/cudnn_*.dll`
+- `cuda/cudart64_12.dll`
+- `cuda/_version.txt` (contains `{VERSION}`)
+
+### When wispy will pull this bundle
+- On first start of a wispy version with an NVIDIA GPU detected (and the
+  user agreeing to the prompt).
+- On wispy update if the locally installed CUDA bundle's version is older
+  than the latest `cuda-v*` release on this repository.

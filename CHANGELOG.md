@@ -180,6 +180,32 @@ Wer von **v0.3.0** kommt:
   The optional `GITHUB_TOKEN` environment variable is still honored for
   higher rate limits but never required.
 
+## [0.2.0] — 2026-04-13
+
+Erstes öffentliches Release. Vor diesem Punkt war das Repo intern.
+
+### Added
+- **Push-to-Talk-Diktat** unter Windows mit globalem Hotkey
+  (Default `F9`, konfigurierbar). Hold-Modus (drücken & halten)
+  und Toggle-Modus (drücken zum Starten/Stoppen).
+- **Lokale Whisper-Transkription** über
+  `faster-whisper` + CTranslate2 mit `large-v3-turbo`. CUDA-DLLs
+  damals direkt im PyInstaller-Bundle (`_internal/`) gepackt.
+- **Whisper-Modell-Erstdownload** beim ersten Start
+  (~1.6 GB nach `<wispy>/models/`, danach Offline).
+- **Clipboard-Paste-Output** statt Tastatur-Simulation —
+  Unicode-sicher und schnell, ursprünglicher Clipboard-Inhalt
+  wird optional wiederhergestellt.
+- **Auto-Elevation** via UAC: das `keyboard`-Hook braucht
+  Admin-Rechte, wispy fordert sie selbst an.
+- **PyInstaller-One-Folder-Build** über `build/build.ps1` mit
+  `uv` als Python-Manager. Output ist ein portables
+  `dist/wispy/`-Verzeichnis mit `wispy.exe` + `_internal/`.
+- **YAML-basierte Konfiguration** (`config.yaml` neben
+  `wispy.exe`): Modell, Hotkey, Sprache, Audio-Device,
+  Beam-Size, Initial-Prompt, Clipboard-Restore.
+- **Deutsch** als Default-Sprache (`language: de`).
+
 [0.4.3]: https://github.com/mka-codelake/wispy/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/mka-codelake/wispy/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/mka-codelake/wispy/compare/v0.4.0...v0.4.1
